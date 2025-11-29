@@ -1,0 +1,75 @@
+{
+  "": {
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/master.swiftdeps"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/AIModelOnDeviceSDK.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/AIModelOnDeviceSDK.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/AIModelOnDeviceSDK.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/AIModelOnDeviceSDK~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/AIModelOnDeviceSDK.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/AIModelOnDeviceSDK.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/InteriorVerificationHandler.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/InteriorVerificationHandler.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/InteriorVerificationHandler.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/InteriorVerificationHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/InteriorVerificationHandler.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/InteriorVerificationHandler.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/ObjectDetectionModelHandler.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/ObjectDetectionModelHandler.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/ObjectDetectionModelHandler.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/ObjectDetectionModelHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/ObjectDetectionModelHandler.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/ObjectDetectionModelHandler.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/TaggerAPIHandler.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerAPIHandler.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerAPIHandler.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerAPIHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerAPIHandler.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerAPIHandler.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/DetectionResult.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DetectionResult.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DetectionResult.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DetectionResult~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DetectionResult.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DetectionResult.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/RoomGenerationResult.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/RoomGenerationResult.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/RoomGenerationResult.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/RoomGenerationResult~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/RoomGenerationResult.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/RoomGenerationResult.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/TaggerResult.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerResult.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerResult.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerResult~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerResult.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/TaggerResult.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/VerificationResult.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/VerificationResult.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/VerificationResult.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/VerificationResult~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/VerificationResult.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/VerificationResult.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/YOLOModel.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/YOLOModel.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/YOLOModel.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/YOLOModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/YOLOModel.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/YOLOModel.dia"
+  },
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DerivedSources/resource_bundle_accessor.swift": {
+    "dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/resource_bundle_accessor.d",
+    "object": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/resource_bundle_accessor.dia"
+  }
+}

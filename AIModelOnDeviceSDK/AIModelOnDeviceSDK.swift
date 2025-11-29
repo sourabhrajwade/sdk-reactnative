@@ -25,7 +25,9 @@
 //  See README.md for complete documentation.
 
 import Foundation
+#if os(iOS)
 import UIKit
+#endif
 
 /// Main SDK entry point for AI Model On Device operations
 ///

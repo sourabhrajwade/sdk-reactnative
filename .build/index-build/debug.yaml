@@ -1,0 +1,58 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module": ["<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module>"]
+  "test": ["<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/AIModelOnDeviceSDK.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/InteriorVerificationHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/ObjectDetectionModelHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/TaggerAPIHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/DetectionResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/RoomGenerationResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/TaggerResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/VerificationResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/YOLOModel.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DerivedSources/resource_bundle_accessor.swift"]
+    outputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/sources"]
+    description: "Write auxiliary file /Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/sources"
+
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK_AIModelOnDeviceSDK.bundle/Resources":
+    tool: copy-tool
+    inputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Resources/"]
+    outputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK_AIModelOnDeviceSDK.bundle/Resources/"]
+    description: "Copying /Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Resources"
+
+  "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/Modules/AIModelOnDeviceSDK.swiftmodule"]
+    outputs: ["<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module>"]
+
+  "AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module-resources":
+    tool: phony
+    inputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK_AIModelOnDeviceSDK.bundle/Resources/"]
+    outputs: ["<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module-resources>"]
+
+  "C.AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/AIModelOnDeviceSDK.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/InteriorVerificationHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/ObjectDetectionModelHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Handlers/TaggerAPIHandler.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/DetectionResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/RoomGenerationResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/TaggerResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/VerificationResult.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/Models/YOLOModel.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/DerivedSources/resource_bundle_accessor.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","<AIModelOnDeviceSDK-arm64-apple-macosx26.0-debug.module-resources>","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/sources"]
+    outputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/Modules/AIModelOnDeviceSDK.swiftmodule"]
+    description: "Compiling Swift Module 'AIModelOnDeviceSDK' (10 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","AIModelOnDeviceSDK","-emit-dependencies","-emit-module","-emit-module-path","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/Modules/AIModelOnDeviceSDK.swiftmodule","-output-file-map","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/output-file-map.json","-parse-as-library","-incremental","@/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/sources","-I","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx10.13","-incremental","-enable-batch-mode","-serialize-diagnostics","-Onone","-enable-testing","-j12","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE","-module-cache-path","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/include/AIModelOnDeviceSDK-Swift.h","-swift-version","5","-Xfrontend","-experimental-lazy-typecheck","-Xfrontend","-experimental-skip-all-function-bodies","-Xfrontend","-experimental-allow-module-with-compiler-errors","-Xfrontend","-empty-abi-descriptor","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","sdk_reactnative"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/AIModelOnDeviceSDK/","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/Package.swift","/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

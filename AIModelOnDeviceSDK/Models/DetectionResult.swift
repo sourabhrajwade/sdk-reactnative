@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if os(iOS)
 import UIKit
+#endif
 
 /// Detection result structure for object detection
 public struct DetectionResult: Codable, Identifiable {

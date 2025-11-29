@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if os(iOS)
 import UIKit
+#endif
 
 /// Room generation result with generated image
 public struct RoomGenerationResult: Identifiable {

@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if os(iOS)
 import UIKit
+#endif
 
 /// Image with its identifier for tagger API
 public struct ImageWithID {

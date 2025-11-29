@@ -6,9 +6,7 @@
 //
 
 import Foundation
-#if os(iOS)
 import UIKit
-#endif
 
 /// Handler for Tagger API calls
 public class TaggerAPIHandler {

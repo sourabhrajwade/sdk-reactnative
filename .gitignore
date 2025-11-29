@@ -48,3 +48,13 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Swift Package Manager build artifacts
+.build/
+.swiftpm/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+

@@ -6,9 +6,7 @@
 //
 
 import Foundation
-#if os(iOS)
 import UIKit
-#endif
 
 /// Verification result for interior image verification
 public struct VerificationResult {

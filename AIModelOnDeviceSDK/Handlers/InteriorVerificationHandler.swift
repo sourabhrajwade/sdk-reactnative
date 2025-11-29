@@ -6,9 +6,7 @@
 //
 
 import Foundation
-#if os(iOS)
 import UIKit
-#endif
 import Vision
 import CoreML
 import CoreImage

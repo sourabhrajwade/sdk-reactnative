@@ -6,9 +6,7 @@
 //
 
 import Foundation
-#if os(iOS)
 import UIKit
-#endif
 import Vision
 import CoreML
 
@@ -164,9 +162,9 @@ public class ObjectDetectionModelHandler {
                 }
             } catch {
                 print("⚠️ Failed to load model from \(url.path): \(error.localizedDescription)")
-                return nil
-            }
-        }
+        return nil
+    }
+}
         
         // Strategy 1: Try .mlmodel (uncompiled - will be compiled automatically)
         // Try this first for YOLOv3 since we have YOLOv3.mlmodel in resources

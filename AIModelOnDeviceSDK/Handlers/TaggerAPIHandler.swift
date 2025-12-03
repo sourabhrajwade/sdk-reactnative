@@ -822,6 +822,23 @@ extension TaggerAPIHandler {
             PersonalizationCache.shared.clear()
         }
         
+        // Validate: Check if we have valid bestPicks with room images
+        let validBestPicks = taggerResult.bestPicks.filter { $0.image != nil }
+        guard !validBestPicks.isEmpty else {
+            print("❌ No room images available from tagger result. Clearing model cache and returning empty result.")
+            // Clear model cache
+            ObjectDetectionModelHandler.shared.clearCache()
+            // Return empty result
+            let emptyResult = PersonalizationResult(
+                productImageMap: [:],
+                categoryImageMap: [:],
+                requestMap: PersonalizationRequestMap(),
+                cachedImages: [:]
+            )
+            completion(.success(emptyResult))
+            return
+        }
+        
         // Build request map and organize by room type
         var requestMap = PersonalizationRequestMap()
         var roomTypeToProducts: [String: [(productId: Int, categoryId: Int, objectUrl: String)]] = [:]
@@ -851,6 +868,8 @@ extension TaggerAPIHandler {
         }
         
         guard !requestMap.getAllRequests().isEmpty else {
+            print("❌ No valid products to personalize. Clearing model cache.")
+            ObjectDetectionModelHandler.shared.clearCache()
             completion(.failure(TaggerAPIError.emptyImages))
             return
         }
@@ -930,6 +949,24 @@ extension TaggerAPIHandler {
         
         // Wait for all generations to complete
         dispatchGroup.notify(queue: .main) {
+            // Validate: Check if we got any generated images
+            guard !productImageMap.isEmpty || !categoryImageMap.isEmpty else {
+                print("❌ No room images generated. No classification or image URLs returned. Clearing model cache and returning empty result.")
+                // Clear model cache
+                ObjectDetectionModelHandler.shared.clearCache()
+                // Clear personalization cache
+                PersonalizationCache.shared.clear()
+                // Return empty result
+                let emptyResult = PersonalizationResult(
+                    productImageMap: [:],
+                    categoryImageMap: [:],
+                    requestMap: requestMap,
+                    cachedImages: [:]
+                )
+                completion(.success(emptyResult))
+                return
+            }
+            
             let result = PersonalizationResult(
                 productImageMap: productImageMap,
                 categoryImageMap: categoryImageMap,

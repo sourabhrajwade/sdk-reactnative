@@ -26,6 +26,7 @@ A comprehensive iOS SDK for on-device AI model inference, providing interior ima
 ## ✨ Features
 
 ### Core AI Features
+
 - **Interior Image Verification**: Verify if images are valid interior photos with quality scoring
 - **Object Detection**: Detect objects in images using YOLO models
 - **Batch Processing**: Process multiple images efficiently with parallel execution
@@ -34,6 +35,7 @@ A comprehensive iOS SDK for on-device AI model inference, providing interior ima
 - **Model Auto-Download**: Automatically downloads YOLOv3 model from Apple's CDN if not found locally
 
 ### Personalization Features
+
 - **Tagger API Integration**: Classify room images and get best picks for each room type
 - **Room Generation**: Generate personalized room images by combining room photos with product images
 - **Product Personalization**: Full pipeline for personalizing products with room context
@@ -113,7 +115,7 @@ sdk.verifyInteriorImage(image, using: .yolov3) { result in
 ```swift
 sdk.detectObjects(image, using: .yolov3) { detections, latency in
     guard let detections = detections else { return }
-    
+
     print("Found \(detections.count) objects in \(latency ?? 0)ms")
     for detection in detections {
         print("\(detection.label): \(detection.confidencePercentage)")
@@ -128,6 +130,7 @@ sdk.detectObjects(image, using: .yolov3) { detections, latency in
 Verify if an image is a valid interior room photo with comprehensive quality scoring.
 
 **Method:**
+
 ```swift
 public func verifyInteriorImage(
     _ image: UIImage,
@@ -137,6 +140,7 @@ public func verifyInteriorImage(
 ```
 
 **What it does:**
+
 1. Detects objects in the image using YOLO
 2. Applies 10 filter checks:
    - Object Detection
@@ -153,17 +157,18 @@ public func verifyInteriorImage(
 4. Returns detailed results
 
 **Example:**
+
 ```swift
 sdk.verifyInteriorImage(image, using: .yolov3) { result in
     print("Valid: \(result.isValid)")
     print("Score: \(result.score)")
     print("Latency: \(result.totalLatency)ms")
-    
+
     // Check individual filters
     for filter in result.filterResults {
         print("\(filter.name): \(filter.passed ? "✅" : "❌")")
     }
-    
+
     // Access detailed score breakdown
     if let breakdown = result.scoreBreakdown {
         print("Furniture Coverage: \(breakdown.furnitureCoverageScore)")
@@ -180,6 +185,7 @@ sdk.verifyInteriorImage(image, using: .yolov3) { result in
 Detect objects in images using YOLO models.
 
 **Method:**
+
 ```swift
 public func detectObjects(
     _ image: UIImage,
@@ -189,6 +195,7 @@ public func detectObjects(
 ```
 
 **Example:**
+
 ```swift
 sdk.detectObjects(image, using: .yolov3) { detections, latency in
     guard let detections = detections else {
@@ -212,6 +219,7 @@ sdk.detectObjects(image, using: .yolov3) { detections, latency in
 Filter and return top 15 images sorted by highest quality score.
 
 **Method:**
+
 ```swift
 public func filterResults(
     _ images: [UIImage],
@@ -221,18 +229,19 @@ public func filterResults(
 ```
 
 **Example:**
+
 ```swift
 let images: [UIImage] = [...] // Your array of images
 
 sdk.filterResults(images, using: .yolov3) { topResults in
     print("Top \(topResults.count) images by score:")
-    
+
     for (index, imageResult) in topResults.enumerated() {
         if let score = imageResult.result.scoreBreakdown?.finalScore {
             print("\(index + 1). Score: \(score)")
             print("   Original Index: \(imageResult.index)")
             print("   Valid: \(imageResult.result.isValid)")
-            
+
             // Use imageResult.image to display
         }
     }
@@ -246,6 +255,7 @@ sdk.filterResults(images, using: .yolov3) { topResults in
 Classify room images and get best picks for each room type.
 
 **Method:**
+
 ```swift
 public func tagImages(
     _ imagesWithIDs: [ImageWithID],
@@ -254,11 +264,13 @@ public func tagImages(
 ```
 
 **Parameters:**
+
 - `imagesWithIDs: [ImageWithID]` - Array of images with identifiers (max 15)
   - `image: UIImage` - The image to tag
   - `identifier: String` - PHAsset localIdentifier or custom ID
 
 **Example:**
+
 ```swift
 let imagesWithIDs: [ImageWithID] = [
     ImageWithID(image: image1, identifier: "localIdentifier1"),
@@ -270,7 +282,7 @@ sdk.tagImages(imagesWithIDs) { result in
     case .success(let taggerResult):
         print("Processed \(taggerResult.meta.totalImages) images")
         print("Latency: \(taggerResult.meta.latencySeconds)s")
-        
+
         // Access best picks for each room type
         for bestPick in taggerResult.bestPicks {
             print("\(bestPick.category): Score \(bestPick.bestPick.score)")
@@ -278,7 +290,7 @@ sdk.tagImages(imagesWithIDs) { result in
                 // Use the best pick image
             }
         }
-        
+
         // Access all results
         for result in taggerResult.results {
             print("Image \(result.identifier):")
@@ -286,7 +298,7 @@ sdk.tagImages(imagesWithIDs) { result in
             print("  Score: \(result.taggerResult.score)")
             print("  Status: \(result.taggerResult.status)")
         }
-        
+
     case .failure(let error):
         print("Error: \(error.localizedDescription)")
     }
@@ -298,6 +310,7 @@ sdk.tagImages(imagesWithIDs) { result in
 Generate personalized room images by combining room photos with product images.
 
 **Method:**
+
 ```swift
 public func generateRooms(
     from taggerResult: TaggerCompleteResult,
@@ -308,6 +321,7 @@ public func generateRooms(
 ```
 
 **Parameters:**
+
 - `taggerResult: TaggerCompleteResult` - Result from tagger API
 - `objectImages: [String: UIImage]?` - Dictionary mapping object labels to images (deprecated, use `objectUrls`)
   - Keys: "bed", "sofa", "table"
@@ -316,6 +330,7 @@ public func generateRooms(
   - Values: Arrays of product image URLs
 
 **Example:**
+
 ```swift
 // Using object URLs (recommended)
 let objectUrls: [String: [String]] = [
@@ -328,16 +343,16 @@ sdk.generateRooms(from: taggerResult, objectUrls: objectUrls) { result in
     switch result {
     case .success(let roomResults):
         print("Generated \(roomResults.totalGenerated) room images")
-        
+
         for roomResult in roomResults.results {
             print("Room Type: \(roomResult.roomType)")
             print("Category: \(roomResult.category)")
             print("Object URL: \(roomResult.objectUrl ?? "none")")
-            
+
             // Use roomResult.generatedImage
             // Use roomResult.roomImage for original room
         }
-        
+
     case .failure(let error):
         print("Error: \(error.localizedDescription)")
     }
@@ -349,6 +364,7 @@ sdk.generateRooms(from: taggerResult, objectUrls: objectUrls) { result in
 Full pipeline for personalizing products with room context, including request tracking and image caching.
 
 **Method:**
+
 ```swift
 public func personalizeProducts(
     from taggerResult: TaggerCompleteResult,
@@ -361,6 +377,7 @@ public func personalizeProducts(
 ```
 
 **Parameters:**
+
 - `taggerResult: TaggerCompleteResult` - Result from tagger API
 - `productUrls: [Int: String]` - Dictionary mapping product IDs to product image URLs
 - `productCategoryMap: [Int: Int]` - Dictionary mapping product IDs to category IDs
@@ -369,6 +386,7 @@ public func personalizeProducts(
 - `completion: @escaping (Result<PersonalizationResult, Error>) -> Void` - Completion handler
 
 **Example:**
+
 ```swift
 // Prepare your data
 let productUrls: [Int: String] = [
@@ -400,24 +418,24 @@ sdk.personalizeProducts(
         print("Products: \(personalizationResult.productImageMap.count)")
         print("Categories: \(personalizationResult.categoryImageMap.count)")
         print("Requests tracked: \(personalizationResult.requestMap.count)")
-        
+
         // Access product images (base64 data URLs)
         for (productId, imageUrl) in personalizationResult.productImageMap {
             print("Product \(productId): \(imageUrl)")
             // Upload imageUrl to your server or use directly
         }
-        
+
         // Access category images
         for (categoryId, imageUrl) in personalizationResult.categoryImageMap {
             print("Category \(categoryId): \(imageUrl)")
         }
-        
+
         // Access cached UIImage objects
         for (key, image) in personalizationResult.cachedImages {
             print("Cached image: \(key)")
             // Use image directly in UI
         }
-        
+
         // Access request tracking
         let allRequests = personalizationResult.requestMap.getAllRequests()
         for request in allRequests {
@@ -428,7 +446,7 @@ sdk.personalizeProducts(
             print("  Object URL: \(request.objectUrl)")
             print("  Generated URL: \(request.generatedImageUrl ?? "none")")
         }
-        
+
     case .failure(let error):
         print("❌ Error: \(error.localizedDescription)")
     }
@@ -436,6 +454,7 @@ sdk.personalizeProducts(
 ```
 
 **PersonalizationResult Properties:**
+
 - `productImageMap: [Int: String]` - Map of product ID to generated image URL (base64 data URL)
 - `categoryImageMap: [Int: String]` - Map of category ID to generated image URL (base64 data URL)
 - `requestMap: PersonalizationRequestMap` - Complete request tracking map
@@ -455,18 +474,18 @@ public static let shared: AIModelOnDeviceSDK
 
 #### Methods
 
-| Method | Parameters | Returns | Description |
-|--------|-----------|---------|-------------|
-| `verifyInteriorImage(_:using:completion:)` | `UIImage`, `YOLOModel?`, `(VerificationResult) -> Void` | `Void` | Verify interior image |
-| `filterResults(_:using:completion:)` | `[UIImage]`, `YOLOModel?`, `([ImageVerificationResult]) -> Void` | `Void` | Filter top 15 images by score |
-| `detectObjects(_:using:completion:)` | `UIImage`, `YOLOModel?`, `([DetectionResult]?, Double?) -> Void` | `Void` | Detect objects |
-| `annotateImage(_:with:)` | `UIImage`, `[DetectionResult]` | `UIImage?` | Annotate image with bounding boxes |
-| `generateJSON(from:)` | `[DetectionResult]` | `String` | Generate JSON from detections |
-| `clearCache()` | None | `Void` | Clear model cache |
-| `tagImages(_:completion:)` | `[ImageWithID]`, `(Result<TaggerCompleteResult, Error>) -> Void` | `Void` | Tag images with Tagger API |
-| `generateRooms(from:objectImages:objectUrls:completion:)` | `TaggerCompleteResult`, `[String: UIImage]?`, `[String: [String]]?`, `(Result<RoomGenerationCompleteResult, Error>) -> Void` | `Void` | Generate room images |
-| `personalizeCategories(from:categoryProductUrls:categoryRoomTypeMap:completion:)` | `TaggerCompleteResult`, `[Int: [String]]`, `[Int: String]`, `(Result<[Int: UIImage], Error>) -> Void` | `Void` | Personalize categories |
-| `personalizeProducts(from:productUrls:productCategoryMap:categoryRoomTypeMap:clearCache:completion:)` | `TaggerCompleteResult`, `[Int: String]`, `[Int: Int]`, `[Int: String]`, `Bool`, `(Result<PersonalizationResult, Error>) -> Void` | `Void` | Personalize products (full pipeline) |
+| Method                                                                                                | Parameters                                                                                                                       | Returns    | Description                          |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------ |
+| `verifyInteriorImage(_:using:completion:)`                                                            | `UIImage`, `YOLOModel?`, `(VerificationResult) -> Void`                                                                          | `Void`     | Verify interior image                |
+| `filterResults(_:using:completion:)`                                                                  | `[UIImage]`, `YOLOModel?`, `([ImageVerificationResult]) -> Void`                                                                 | `Void`     | Filter top 15 images by score        |
+| `detectObjects(_:using:completion:)`                                                                  | `UIImage`, `YOLOModel?`, `([DetectionResult]?, Double?) -> Void`                                                                 | `Void`     | Detect objects                       |
+| `annotateImage(_:with:)`                                                                              | `UIImage`, `[DetectionResult]`                                                                                                   | `UIImage?` | Annotate image with bounding boxes   |
+| `generateJSON(from:)`                                                                                 | `[DetectionResult]`                                                                                                              | `String`   | Generate JSON from detections        |
+| `clearCache()`                                                                                        | None                                                                                                                             | `Void`     | Clear model cache                    |
+| `tagImages(_:completion:)`                                                                            | `[ImageWithID]`, `(Result<TaggerCompleteResult, Error>) -> Void`                                                                 | `Void`     | Tag images with Tagger API           |
+| `generateRooms(from:objectImages:objectUrls:completion:)`                                             | `TaggerCompleteResult`, `[String: UIImage]?`, `[String: [String]]?`, `(Result<RoomGenerationCompleteResult, Error>) -> Void`     | `Void`     | Generate room images                 |
+| `personalizeCategories(from:categoryProductUrls:categoryRoomTypeMap:completion:)`                     | `TaggerCompleteResult`, `[Int: [String]]`, `[Int: String]`, `(Result<[Int: UIImage], Error>) -> Void`                            | `Void`     | Personalize categories               |
+| `personalizeProducts(from:productUrls:productCategoryMap:categoryRoomTypeMap:clearCache:completion:)` | `TaggerCompleteResult`, `[Int: String]`, `[Int: Int]`, `[Int: String]`, `Bool`, `(Result<PersonalizationResult, Error>) -> Void` | `Void`     | Personalize products (full pipeline) |
 
 ## 📊 Data Models
 
@@ -481,6 +500,7 @@ public enum YOLOModel: String, CaseIterable {
 ```
 
 **Properties:**
+
 - `displayName: String` - Human-readable name
 - `modelDescription: String` - Description of the model
 
@@ -567,44 +587,44 @@ import UIKit
 
 class PersonalizationService {
     let sdk = AIModelOnDeviceSDK.shared
-    
+
     func runPersonalizationPipeline(images: [UIImage]) {
         // Step 1: Tag images
         let imagesWithIDs = images.enumerated().map { index, image in
             ImageWithID(image: image, identifier: "image_\(index)")
         }
-        
+
         sdk.tagImages(imagesWithIDs) { [weak self] result in
             guard let self = self else { return }
-            
+
             switch result {
             case .success(let taggerResult):
                 // Step 2: Personalize products
                 self.personalizeProducts(from: taggerResult)
-                
+
             case .failure(let error):
                 print("Tagger API error: \(error.localizedDescription)")
             }
         }
     }
-    
+
     func personalizeProducts(from taggerResult: TaggerCompleteResult) {
         // Prepare your product data
         let productUrls: [Int: String] = [
             1: "https://example.com/product1.jpg",
             2: "https://example.com/product2.jpg"
         ]
-        
+
         let productCategoryMap: [Int: Int] = [
             1: 10,
             2: 20
         ]
-        
+
         let categoryRoomTypeMap: [Int: String] = [
             10: "bedroom",
             20: "living_room"
         ]
-        
+
         // Step 3: Personalize
         sdk.personalizeProducts(
             from: taggerResult,
@@ -617,19 +637,19 @@ class PersonalizationService {
             case .success(let personalizationResult):
                 // Step 4: Use results
                 self.handlePersonalizationResult(personalizationResult)
-                
+
             case .failure(let error):
                 print("Personalization error: \(error.localizedDescription)")
             }
         }
     }
-    
+
     func handlePersonalizationResult(_ result: PersonalizationResult) {
         // Upload images to your server
         for (productId, imageUrl) in result.productImageMap {
             uploadImageToServer(productId: productId, imageUrl: imageUrl)
         }
-        
+
         // Or use cached images directly
         for (key, image) in result.cachedImages {
             displayImage(image, forKey: key)
@@ -648,7 +668,7 @@ struct PersonalizationView: View {
     @State private var images: [UIImage] = []
     @State private var result: PersonalizationResult?
     @State private var isProcessing = false
-    
+
     var body: some View {
         VStack {
             if isProcessing {
@@ -657,7 +677,7 @@ struct PersonalizationView: View {
                 Text("✅ Personalization Complete!")
                 Text("Products: \(result.productImageMap.count)")
                 Text("Categories: \(result.categoryImageMap.count)")
-                
+
                 // Display cached images
                 ScrollView {
                     ForEach(Array(result.cachedImages.keys), id: \.self) { key in
@@ -676,7 +696,7 @@ struct PersonalizationView: View {
             }
         }
     }
-    
+
     func startPersonalization() {
         isProcessing = true
     let sdk = AIModelOnDeviceSDK.shared
@@ -685,7 +705,7 @@ struct PersonalizationView: View {
         let imagesWithIDs = images.enumerated().map { index, image in
             ImageWithID(image: image, identifier: "\(index)")
         }
-        
+
         sdk.tagImages(imagesWithIDs) { result in
             switch result {
             case .success(let taggerResult):
@@ -701,7 +721,7 @@ struct PersonalizationView: View {
                         self.isProcessing = false
                     }
                 }
-                
+
             case .failure(let error):
                 print("Error: \(error.localizedDescription)")
                 isProcessing = false
@@ -730,21 +750,21 @@ func personalizeWithErrorHandling() {
                 print("⚠️ No products personalized")
                 return
             }
-            
+
             // Check for failed requests
             let allRequests = personalizationResult.requestMap.getAllRequests()
             let failedRequests = allRequests.filter { $0.generatedImageUrl == nil }
-            
+
             if !failedRequests.isEmpty {
                 print("⚠️ \(failedRequests.count) requests failed")
                 for request in failedRequests {
                     print("  - Request \(request.id) failed")
                 }
             }
-            
+
             // Success
             print("✅ Successfully personalized \(personalizationResult.productImageMap.count) products")
-            
+
         case .failure(let error):
             if let taggerError = error as? TaggerAPIError {
                 switch taggerError {
@@ -772,32 +792,38 @@ func personalizeWithErrorHandling() {
 ## 🎯 Best Practices
 
 ### 1. Model Selection
+
 - Use `.yolov3` for balanced performance and accuracy
 - The model is automatically downloaded from Apple's CDN if not found locally
 
 ### 2. Image Processing
+
 - Resize large images before processing to improve performance
 - Process images in batches for better throughput
 - Clear cache when switching between many models
 
 ### 3. Personalization
+
 - Always clear cache before starting a new personalization run (`clearCache: true`)
 - Use `objectUrls` instead of `objectImages` for better performance
 - Track requests using `PersonalizationRequestMap` for debugging
 - Upload generated images to your server for persistence
 
 ### 4. Error Handling
+
 - Always handle both success and failure cases
 - Check for empty results before processing
 - Log errors for debugging
 - Provide user feedback for long-running operations
 
 ### 5. Memory Management
+
 - Release images after processing when possible
 - Use `clearCache()` when memory is constrained
 - Process images in smaller batches for large datasets
 
 ### 6. Thread Safety
+
 - All SDK methods are thread-safe
 - Completion handlers are called on the same thread/queue as the method call
 - Always dispatch UI updates to the main queue
@@ -806,13 +832,13 @@ func personalizeWithErrorHandling() {
 
 ### Typical Processing Times
 
-| Operation | Time (ms) | Notes |
-|-----------|-----------|-------|
-| Object Detection (YOLOv3) | 100-180 | Varies by device and image size |
-| Interior Verification | +50-100 | Includes detection time |
-| Tagger API | 2000-5000 | Network dependent |
-| Room Generation | 5000-15000 | Network dependent, per image |
-| Product Personalization | 5000-15000 × N | N = number of products, parallel processing |
+| Operation                 | Time (ms)      | Notes                                       |
+| ------------------------- | -------------- | ------------------------------------------- |
+| Object Detection (YOLOv3) | 100-180        | Varies by device and image size             |
+| Interior Verification     | +50-100        | Includes detection time                     |
+| Tagger API                | 2000-5000      | Network dependent                           |
+| Room Generation           | 5000-15000     | Network dependent, per image                |
+| Product Personalization   | 5000-15000 × N | N = number of products, parallel processing |
 
 ### Optimization Tips
 
@@ -829,6 +855,7 @@ func personalizeWithErrorHandling() {
 **Error:** `❌ FAILED: Could not load YOLO model`
 
 **Solutions:**
+
 1. The SDK will automatically download YOLOv3 from Apple's CDN if not found locally
 2. Check internet connection for first-time download
 3. Check console logs for download progress
@@ -839,6 +866,7 @@ func personalizeWithErrorHandling() {
 **Issue:** Processing is too slow
 
 **Solutions:**
+
 1. Resize images before processing
 2. Process images in smaller batches
 3. Check device capabilities (older devices are slower)
@@ -849,6 +877,7 @@ func personalizeWithErrorHandling() {
 **Issue:** App crashes or memory warnings
 
 **Solutions:**
+
 1. Clear model cache: `sdk.clearCache()`
 2. Process images in smaller batches
 3. Release images after processing
@@ -859,6 +888,7 @@ func personalizeWithErrorHandling() {
 **Issue:** Tagger API or room generation fails
 
 **Solutions:**
+
 1. Check internet connection
 2. Verify API endpoints are accessible
 3. Check request timeout settings
@@ -870,11 +900,13 @@ func personalizeWithErrorHandling() {
 **Issue:** `detections` is `nil` or empty
 
 **Possible Causes:**
+
 1. Image doesn't contain detectable objects
 2. Image format issues
 3. Model not loaded correctly
 
 **Solutions:**
+
 1. Check console for error messages
 2. Try different image
 3. Verify image is valid `UIImage`
@@ -890,12 +922,14 @@ func personalizeWithErrorHandling() {
 ### API Endpoints
 
 The SDK uses the following API endpoints (configured internally):
+
 - Tagger API: `https://hp.gennoctua.com/api/ml/tagger`
 - Room Generation API: `https://hp.gennoctua.com/api/gen/generate-room`
 
 ### Support
 
 For issues, questions, or contributions:
+
 - Create an issue on GitHub
 - Check existing documentation
 - Review example code in the repository

@@ -489,10 +489,57 @@ public class AIModelOnDeviceSDK {
     ///   - completion: Completion handler with result
     public func generateRooms(
         from taggerResult: TaggerCompleteResult,
-        objectImages: [String: UIImage],
+        objectImages: [String: UIImage]? = nil,
+        objectUrls: [String: [String]]? = nil,
         completion: @escaping (Result<RoomGenerationCompleteResult, Error>) -> Void
     ) {
-        TaggerAPIHandler.shared.generateRooms(from: taggerResult, objectImages: objectImages, completion: completion)
+        TaggerAPIHandler.shared.generateRooms(from: taggerResult, objectImages: objectImages, objectUrls: objectUrls, completion: completion)
+    }
+    
+    /// Personalizes categories by generating room images
+    /// - Parameters:
+    ///   - taggerResult: The tagger API result containing categorized images
+    ///   - categoryProductUrls: Dictionary mapping category IDs to arrays of product image URLs [categoryId: [url1, url2, ...]]
+    ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types [categoryId: "bedroom"|"living_room"|"dining_room"]
+    ///   - completion: Completion handler with dictionary of categoryId -> generated UIImage (app should upload these to get URLs)
+    public func personalizeCategories(
+        from taggerResult: TaggerCompleteResult,
+        categoryProductUrls: [Int: [String]],
+        categoryRoomTypeMap: [Int: String],
+        completion: @escaping (Result<[Int: UIImage], Error>) -> Void
+    ) {
+        TaggerAPIHandler.shared.personalizeCategories(
+            from: taggerResult,
+            categoryProductUrls: categoryProductUrls,
+            categoryRoomTypeMap: categoryRoomTypeMap,
+            completion: completion
+        )
+    }
+    
+    /// Personalizes products with full tracking, caching, and result object
+    /// - Parameters:
+    ///   - taggerResult: The tagger API result containing categorized images
+    ///   - productUrls: Dictionary mapping product IDs to product image URLs [productId: url]
+    ///   - productCategoryMap: Dictionary mapping product IDs to category IDs [productId: categoryId]
+    ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types [categoryId: "bedroom"|"living_room"|"dining_room"]
+    ///   - clearCache: Whether to clear cache before generating (default: true)
+    ///   - completion: Completion handler with PersonalizationResult containing all mappings and cached images
+    public func personalizeProducts(
+        from taggerResult: TaggerCompleteResult,
+        productUrls: [Int: String],
+        productCategoryMap: [Int: Int],
+        categoryRoomTypeMap: [Int: String],
+        clearCache: Bool = true,
+        completion: @escaping (Result<PersonalizationResult, Error>) -> Void
+    ) {
+        TaggerAPIHandler.shared.personalizeProducts(
+            from: taggerResult,
+            productUrls: productUrls,
+            productCategoryMap: productCategoryMap,
+            categoryRoomTypeMap: categoryRoomTypeMap,
+            clearCache: clearCache,
+            completion: completion
+        )
     }
 }
 

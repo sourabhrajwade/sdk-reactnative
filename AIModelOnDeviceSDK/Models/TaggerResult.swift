@@ -37,6 +37,12 @@ public struct BestPick: Codable {
     public let filename: String
     public let score: Double
     public let id: Int
+    public let imageUrl: String? // URL to the image
+    
+    enum CodingKeys: String, CodingKey {
+        case filename, score, id
+        case imageUrl = "image_url"
+    }
 }
 
 /// Best picks for all room categories
@@ -63,6 +69,12 @@ public struct TaggerImageResult: Codable {
     public let category: String? // Optional because API can return null
     public let score: Double
     public let status: String
+    public let imageUrl: String? // URL to the uploaded/processed image
+    
+    enum CodingKeys: String, CodingKey {
+        case id, filename, category, score, status
+        case imageUrl = "image_url"
+    }
 }
 
 /// Complete tagger API response
@@ -81,13 +93,15 @@ public struct TaggerResponse: Codable {
 /// Tagger result with mapped image
 public struct TaggerResult: Identifiable {
     public let id: UUID
-    public let image: UIImage
+    public let image: UIImage?
+    public let imageUrl: String?
     public let identifier: String
     public let taggerResult: TaggerImageResult
     
-    public init(image: UIImage, identifier: String, taggerResult: TaggerImageResult) {
+    public init(image: UIImage?, imageUrl: String?, identifier: String, taggerResult: TaggerImageResult) {
         self.id = UUID()
         self.image = image
+        self.imageUrl = imageUrl
         self.identifier = identifier
         self.taggerResult = taggerResult
     }
@@ -96,13 +110,15 @@ public struct TaggerResult: Identifiable {
 /// Best pick result with mapped image
 public struct BestPickResult {
     public let category: String
-    public let image: UIImage
+    public let image: UIImage?
+    public let imageUrl: String?
     public let identifier: String
     public let bestPick: BestPick
     
-    public init(category: String, image: UIImage, identifier: String, bestPick: BestPick) {
+    public init(category: String, image: UIImage?, imageUrl: String?, identifier: String, bestPick: BestPick) {
         self.category = category
         self.image = image
+        self.imageUrl = imageUrl
         self.identifier = identifier
         self.bestPick = bestPick
     }

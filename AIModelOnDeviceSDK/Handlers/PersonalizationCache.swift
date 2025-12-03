@@ -37,16 +37,23 @@ public class PersonalizationCache {
     private func convertToRGB(_ image: UIImage) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
         
-        // Check if image already has no alpha
+        // Check if image already has no alpha channel
+        let alphaInfo = cgImage.alphaInfo
+        if alphaInfo == .none || alphaInfo == .noneSkipFirst || alphaInfo == .noneSkipLast {
+            // Already RGB format, no conversion needed
+            return image
+        }
+        
+        // Convert to RGB (3 bytes per pixel, no alpha)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
         
         guard let context = CGContext(
             data: nil,
             width: cgImage.width,
             height: cgImage.height,
             bitsPerComponent: 8,
-            bytesPerRow: 0,
+            bytesPerRow: cgImage.width * 3, // 3 bytes per pixel (RGB)
             space: colorSpace,
             bitmapInfo: bitmapInfo.rawValue
         ) else { return nil }

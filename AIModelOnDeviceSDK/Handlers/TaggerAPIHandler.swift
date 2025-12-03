@@ -808,6 +808,7 @@ extension TaggerAPIHandler {
     ///   - productCategoryMap: Dictionary mapping product IDs to category IDs [productId: categoryId]
     ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types [categoryId: "bedroom"|"living_room"|"dining_room"]
     ///   - clearCache: Whether to clear cache before generating (default: true)
+    ///   - minimumProductCount: Minimum number of products required for personalization (default: 3)
     ///   - completion: Completion handler with PersonalizationResult containing all mappings and cached images
     public func personalizeProducts(
         from taggerResult: TaggerCompleteResult,
@@ -815,6 +816,7 @@ extension TaggerAPIHandler {
         productCategoryMap: [Int: Int],
         categoryRoomTypeMap: [Int: String],
         clearCache: Bool = true,
+        minimumProductCount: Int = 3,
         completion: @escaping (Result<PersonalizationResult, Error>) -> Void
     ) {
         // Clear cache if requested
@@ -865,6 +867,15 @@ extension TaggerAPIHandler {
                 roomTypeToProducts[roomType] = []
             }
             roomTypeToProducts[roomType]?.append((productId: productId, categoryId: categoryId, objectUrl: objectUrl))
+        }
+        
+        // Validate: Check minimum product count requirement
+        let validProductCount = requestMap.getAllRequests().count
+        guard validProductCount >= minimumProductCount else {
+            print("❌ Insufficient products for personalization. Required: \(minimumProductCount), Found: \(validProductCount). Clearing model cache.")
+            ObjectDetectionModelHandler.shared.clearCache()
+            completion(.failure(TaggerAPIError.emptyImages))
+            return
         }
         
         guard !requestMap.getAllRequests().isEmpty else {

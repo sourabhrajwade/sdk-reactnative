@@ -523,6 +523,7 @@ public class AIModelOnDeviceSDK {
     ///   - productCategoryMap: Dictionary mapping product IDs to category IDs [productId: categoryId]
     ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types [categoryId: "bedroom"|"living_room"|"dining_room"]
     ///   - clearCache: Whether to clear cache before generating (default: true)
+    ///   - minimumProductCount: Minimum number of products required for personalization (default: 3)
     ///   - completion: Completion handler with PersonalizationResult containing all mappings and cached images
     public func personalizeProducts(
         from taggerResult: TaggerCompleteResult,
@@ -530,6 +531,7 @@ public class AIModelOnDeviceSDK {
         productCategoryMap: [Int: Int],
         categoryRoomTypeMap: [Int: String],
         clearCache: Bool = true,
+        minimumProductCount: Int = 3,
         completion: @escaping (Result<PersonalizationResult, Error>) -> Void
     ) {
         TaggerAPIHandler.shared.personalizeProducts(
@@ -538,6 +540,7 @@ public class AIModelOnDeviceSDK {
             productCategoryMap: productCategoryMap,
             categoryRoomTypeMap: categoryRoomTypeMap,
             clearCache: clearCache,
+            minimumProductCount: minimumProductCount,
             completion: completion
         )
     }

@@ -6,7 +6,7 @@
 # Node artifact files
 node_modules/
 dist/
-
+.build/
 # Compiled Java class files
 *.class
 
@@ -49,10 +49,6 @@ Thumbs.db
 *.wmv
 
 # Swift Package Manager build artifacts
-.build/
-.swiftpm/
-
-# Swift Package Manager
 .build/
 .swiftpm/
 *.xcodeproj/xcuserdata/

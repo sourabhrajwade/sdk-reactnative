@@ -1,3 +1,0 @@
-module AIModelOnDeviceSDK {
-    header "/Users/sourabhrajwade/Documents/zclap/sdk-reactnative/.build/index-build/arm64-apple-macosx/debug/AIModelOnDeviceSDK.build/include/AIModelOnDeviceSDK-Swift.h"
-}

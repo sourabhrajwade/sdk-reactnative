@@ -110,61 +110,8 @@ public class ObjectDetectionModelHandler {
         
         // Helper function to load model from URL
         func loadModelFromURL(_ url: URL, fileName: String, extension: String) -> VNCoreMLModel? {
-            do {
-                if `extension` == "mlmodelc" {
-                    // Pre-compiled model - safe to load on any thread
-                    let model = try MLModel(contentsOf: url)
-                    let visionModel = try VNCoreMLModel(for: model)
-                    modelCache[modelType] = visionModel
-                    print("✅ Successfully loaded compiled YOLO model: \(fileName).\(`extension`)")
-                    return visionModel
-                } else {
-                    // Need to compile first - must be done on background thread
-                    var compiledURL: URL?
-                    var compileError: Error?
-                    
-                    // Use semaphore to wait for background compilation
-                    let semaphore = DispatchSemaphore(value: 0)
-                    
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        do {
-                            // MLModel.compileModel should not be called on main thread
-                            compiledURL = try MLModel.compileModel(at: url)
-                        } catch {
-                            compileError = error
-                        }
-                        semaphore.signal()
-                    }
-                    
-                    // Wait for compilation to complete (with timeout)
-                    let timeout = semaphore.wait(timeout: .now() + 60) // 60 second timeout
-                    
-                    if timeout == .timedOut {
-                        print("⚠️ Model compilation timed out: \(url.path)")
-                        return nil
-                    }
-                    
-                    if let error = compileError {
-                        throw error
-                    }
-                    
-                    guard let compiledURL = compiledURL else {
-                        print("⚠️ Failed to compile model: \(url.path)")
-                        return nil
-                    }
-                    
-                    // Load the compiled model
-                    let model = try MLModel(contentsOf: compiledURL)
-                    let visionModel = try VNCoreMLModel(for: model)
-                    modelCache[modelType] = visionModel
-                    print("✅ Successfully compiled and loaded YOLO: \(fileName).\(`extension`)")
-                    return visionModel
-                }
-            } catch {
-                print("⚠️ Failed to load model from \(url.path): \(error.localizedDescription)")
-        return nil
-    }
-}
+            return self.loadModelFromURL(url, fileName: fileName, extension: `extension`, modelType: modelType)
+        }
         
         // Strategy 1: Try .mlmodel (uncompiled - will be compiled automatically)
         // Try this first for YOLOv3 since we have YOLOv3.mlmodel in resources
@@ -206,8 +153,7 @@ public class ObjectDetectionModelHandler {
         }
         
         // Strategy 4: Download from Apple's CDN if not found locally
-        // Support all YOLOv3 variants
-        if modelType == .yolov3 || modelType == .yolov3FP16 || modelType == .yolov3Int8LUT {
+        if modelType == .yolov3 {
             print("📥 Model not found locally, attempting to download from Apple's CDN...")
             if let downloadedModel = downloadModelFromAppleCDN(modelType: modelType) {
                 return downloadedModel
@@ -219,13 +165,69 @@ public class ObjectDetectionModelHandler {
         return nil
     }
     
+    /// Load model from URL (private helper method)
+    private func loadModelFromURL(_ url: URL, fileName: String, extension: String, modelType: YOLOModel) -> VNCoreMLModel? {
+        do {
+            if `extension` == "mlmodelc" {
+                // Pre-compiled model - safe to load on any thread
+                let model = try MLModel(contentsOf: url)
+                let visionModel = try VNCoreMLModel(for: model)
+                modelCache[modelType] = visionModel
+                print("✅ Successfully loaded compiled YOLO model: \(fileName).\(`extension`)")
+                return visionModel
+            } else {
+                // Need to compile first - must be done on background thread
+                var compiledURL: URL?
+                var compileError: Error?
+                
+                // Use semaphore to wait for background compilation
+                let semaphore = DispatchSemaphore(value: 0)
+                
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        // MLModel.compileModel should not be called on main thread
+                        compiledURL = try MLModel.compileModel(at: url)
+                    } catch {
+                        compileError = error
+                    }
+                    semaphore.signal()
+                }
+                
+                // Wait for compilation to complete (with timeout)
+                let timeout = semaphore.wait(timeout: .now() + 60) // 60 second timeout
+                
+                if timeout == .timedOut {
+                    print("⚠️ Model compilation timed out: \(url.path)")
+                    return nil
+                }
+                
+                if let error = compileError {
+                    throw error
+                }
+                
+                guard let compiledURL = compiledURL else {
+                    print("⚠️ Failed to compile model: \(url.path)")
+                    return nil
+                }
+                
+                // Load the compiled model
+                let model = try MLModel(contentsOf: compiledURL)
+                let visionModel = try VNCoreMLModel(for: model)
+                modelCache[modelType] = visionModel
+                print("✅ Successfully compiled and loaded YOLO: \(fileName).\(`extension`)")
+                return visionModel
+            }
+        } catch {
+            print("⚠️ Failed to load model from \(url.path): \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
     /// Download YOLOv3 model from Apple's CDN
     private func downloadModelFromAppleCDN(modelType: YOLOModel) -> VNCoreMLModel? {
-        // Apple CDN URLs for YOLOv3 models
+        // Apple CDN URL for YOLOv3 model
         let cdnURLs: [YOLOModel: String] = [
-            .yolov3: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3.mlmodel",
-            .yolov3FP16: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3FP16.mlmodel",
-            .yolov3Int8LUT: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3Int8LUT.mlmodel"
+            .yolov3: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3.mlmodel"
         ]
         
         guard let urlString = cdnURLs[modelType],
@@ -245,7 +247,7 @@ public class ObjectDetectionModelHandler {
         // Check if model is already cached
         if FileManager.default.fileExists(atPath: cachedModelURL.path) {
             print("💾 Found cached model at: \(cachedModelURL.path)")
-            return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel")
+            return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel", modelType: modelType)
         }
         
         // Download the model
@@ -288,13 +290,13 @@ public class ObjectDetectionModelHandler {
             print("⚠️ Failed to save model to cache: \(error.localizedDescription)")
             // Try to load from memory instead
             if let tempURL = createTemporaryFile(data: data, fileName: modelType.modelFileName) {
-                return loadModelFromURL(tempURL, fileName: modelType.modelFileName, extension: "mlmodel")
+                return loadModelFromURL(tempURL, fileName: modelType.modelFileName, extension: "mlmodel", modelType: modelType)
             }
             return nil
         }
         
         // Load from cache
-        return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel")
+        return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel", modelType: modelType)
     }
     
     /// Create a temporary file from data

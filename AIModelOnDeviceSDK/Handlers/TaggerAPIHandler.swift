@@ -691,36 +691,6 @@ public class TaggerAPIHandler {
         image.draw(in: CGRect(origin: .zero, size: newSize))
         return UIGraphicsGetImageFromCurrentImageContext() ?? image
     }
-}
-
-/// Tagger API errors
-public enum TaggerAPIError: LocalizedError {
-    case emptyImages
-    case imageConversionFailed
-    case invalidURL
-    case noData
-    case invalidResponse
-    case timeout
-    case httpError(statusCode: Int)
-    
-    public var errorDescription: String? {
-        switch self {
-        case .emptyImages:
-            return "No images provided"
-        case .imageConversionFailed:
-            return "Failed to convert image to JPEG"
-        case .invalidURL:
-            return "Invalid API URL"
-        case .noData:
-            return "No data received from API"
-        case .invalidResponse:
-            return "Invalid HTTP response"
-        case .timeout:
-            return "Request timed out. The API may be processing a large number of images. Please try again."
-        case .httpError(let statusCode):
-            return "HTTP error with status code: \(statusCode)"
-        }
-    }
     
     /// Personalizes categories by generating room images
     /// - Parameters:
@@ -798,7 +768,39 @@ public enum TaggerAPIError: LocalizedError {
             }
         }
     }
+}
+
+/// Tagger API errors
+public enum TaggerAPIError: LocalizedError {
+    case emptyImages
+    case imageConversionFailed
+    case invalidURL
+    case noData
+    case invalidResponse
+    case timeout
+    case httpError(statusCode: Int)
     
+    public var errorDescription: String? {
+        switch self {
+        case .emptyImages:
+            return "No images provided"
+        case .imageConversionFailed:
+            return "Failed to convert image to JPEG"
+        case .invalidURL:
+            return "Invalid API URL"
+        case .noData:
+            return "No data received from API"
+        case .invalidResponse:
+            return "Invalid HTTP response"
+        case .timeout:
+            return "Request timed out. The API may be processing a large number of images. Please try again."
+        case .httpError(let statusCode):
+            return "HTTP error with status code: \(statusCode)"
+        }
+    }
+}
+
+extension TaggerAPIHandler {
     /// Personalizes products with full tracking, caching, and result object
     /// - Parameters:
     ///   - taggerResult: The tagger API result containing categorized images

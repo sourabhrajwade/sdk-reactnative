@@ -657,6 +657,7 @@ public class TaggerAPIHandler {
                 category: roomType,
                 roomImage: roomImage,
                 objectImage: objectImage,
+                objectUrl: objectUrl,
                 generatedImage: generatedImage,
                 roomType: roomType
             )

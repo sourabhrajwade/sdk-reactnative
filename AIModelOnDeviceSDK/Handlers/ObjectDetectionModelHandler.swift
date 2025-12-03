@@ -205,9 +205,109 @@ public class ObjectDetectionModelHandler {
             }
         }
         
+        // Strategy 4: Download from Apple's CDN if not found locally
+        if modelType == .yolov3 {
+            print("📥 Model not found locally, attempting to download from Apple's CDN...")
+            if let downloadedModel = downloadModelFromAppleCDN(modelType: modelType) {
+                return downloadedModel
+            }
+        }
+        
         print("❌ FAILED: Could not load YOLO model \(modelType.rawValue)")
         print("   Looking for: \(fileName).mlmodel in \(subdirectory ?? "root")")
         return nil
+    }
+    
+    /// Download YOLOv3 model from Apple's CDN
+    private func downloadModelFromAppleCDN(modelType: YOLOModel) -> VNCoreMLModel? {
+        // Apple CDN URLs for YOLOv3 models
+        let cdnURLs: [YOLOModel: String] = [
+            .yolov3: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3.mlmodel",
+            .yolov3FP16: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3FP16.mlmodel",
+            .yolov3Int8LUT: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3Int8LUT.mlmodel"
+        ]
+        
+        guard let urlString = cdnURLs[modelType],
+              let url = URL(string: urlString) else {
+            print("❌ No CDN URL available for model: \(modelType.rawValue)")
+            return nil
+        }
+        
+        // Check cache directory first
+        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let modelsCacheDir = cacheDir.appendingPathComponent("AIModelOnDeviceSDK/Models", isDirectory: true)
+        let cachedModelURL = modelsCacheDir.appendingPathComponent("\(modelType.modelFileName).mlmodel")
+        
+        // Create cache directory if it doesn't exist
+        try? FileManager.default.createDirectory(at: modelsCacheDir, withIntermediateDirectories: true, attributes: nil)
+        
+        // Check if model is already cached
+        if FileManager.default.fileExists(atPath: cachedModelURL.path) {
+            print("💾 Found cached model at: \(cachedModelURL.path)")
+            return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel")
+        }
+        
+        // Download the model
+        print("⬇️ Downloading \(modelType.rawValue) from Apple CDN...")
+        var downloadError: Error?
+        var downloadedData: Data?
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                downloadError = error
+                print("❌ Download failed: \(error.localizedDescription)")
+            } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let data = data {
+                downloadedData = data
+                print("✅ Downloaded \(modelType.rawValue) (\(data.count / 1024 / 1024)MB)")
+            } else {
+                downloadError = NSError(domain: "ModelDownload", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+            }
+            semaphore.signal()
+        }.resume()
+        
+        // Wait for download (with 5 minute timeout for large files)
+        let timeout = semaphore.wait(timeout: .now() + 300)
+        
+        if timeout == .timedOut {
+            print("❌ Download timed out")
+            return nil
+        }
+        
+        guard let data = downloadedData, downloadError == nil else {
+            print("❌ Failed to download model: \(downloadError?.localizedDescription ?? "Unknown error")")
+            return nil
+        }
+        
+        // Save to cache
+        do {
+            try data.write(to: cachedModelURL)
+            print("💾 Saved model to cache: \(cachedModelURL.path)")
+        } catch {
+            print("⚠️ Failed to save model to cache: \(error.localizedDescription)")
+            // Try to load from memory instead
+            if let tempURL = createTemporaryFile(data: data, fileName: modelType.modelFileName) {
+                return loadModelFromURL(tempURL, fileName: modelType.modelFileName, extension: "mlmodel")
+            }
+            return nil
+        }
+        
+        // Load from cache
+        return loadModelFromURL(cachedModelURL, fileName: modelType.modelFileName, extension: "mlmodel")
+    }
+    
+    /// Create a temporary file from data
+    private func createTemporaryFile(data: Data, fileName: String) -> URL? {
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempURL = tempDir.appendingPathComponent("\(fileName).mlmodel")
+        
+        do {
+            try data.write(to: tempURL)
+            return tempURL
+        } catch {
+            print("❌ Failed to create temporary file: \(error.localizedDescription)")
+            return nil
+        }
     }
     
     /// Detect objects in image using the specified YOLO model

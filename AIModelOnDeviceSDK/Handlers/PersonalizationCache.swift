@@ -33,15 +33,42 @@ public class PersonalizationCache {
         loadFromDisk()
     }
     
+    /// Convert image to RGB format (no alpha) to avoid memory waste for opaque images
+    private func convertToRGB(_ image: UIImage) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+        
+        // Check if image already has no alpha
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        
+        guard let context = CGContext(
+            data: nil,
+            width: cgImage.width,
+            height: cgImage.height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
+        ) else { return nil }
+        
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+        
+        guard let rgbImage = context.makeImage() else { return nil }
+        return UIImage(cgImage: rgbImage, scale: image.scale, orientation: image.imageOrientation)
+    }
+    
     /// Store an image persistently (both memory and disk)
     public func storeImage(_ image: UIImage, forKey key: String) {
         queue.async(flags: .barrier) {
+            // Convert to RGB format (no alpha) to avoid memory waste
+            let rgbImage = self.convertToRGB(image) ?? image
+            
             // Store in memory
-            self.memoryCache[key] = image
+            self.memoryCache[key] = rgbImage
             
             // Store on disk
             let fileURL = self.cacheDirectory.appendingPathComponent("\(key).jpg")
-            if let imageData = image.jpegData(compressionQuality: 0.9) {
+            if let imageData = rgbImage.jpegData(compressionQuality: 0.9) {
                 try? imageData.write(to: fileURL)
             }
         }

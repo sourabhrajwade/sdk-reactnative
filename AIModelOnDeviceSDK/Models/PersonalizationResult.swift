@@ -22,6 +22,12 @@ public struct PersonalizationResult {
     /// All generated images cached by the SDK
     public let cachedImages: [String: UIImage] // key -> UIImage
     
+    /// Whether any API calls failed
+    public let hasErrors: Bool
+    
+    /// Array of all failed requests with error information
+    public let failedRequests: [PersonalizationRequest]
+    
     public init(
         productImageMap: [Int: String] = [:],
         categoryImageMap: [Int: String] = [:],
@@ -32,6 +38,8 @@ public struct PersonalizationResult {
         self.categoryImageMap = categoryImageMap
         self.requestMap = requestMap
         self.cachedImages = cachedImages
+        self.hasErrors = requestMap.hasFailures
+        self.failedRequests = requestMap.getFailedRequests()
     }
 }
 

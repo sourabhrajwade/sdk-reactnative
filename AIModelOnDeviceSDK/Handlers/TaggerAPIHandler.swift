@@ -940,6 +940,8 @@ extension TaggerAPIHandler {
                             }
                         case .failure(let error):
                             print("   ❌ Error generating image for product \(productId): \(error.localizedDescription)")
+                            // Store error in request
+                            requestMap.updateRequestWithError(id: requestId, error: error, message: error.localizedDescription)
                         }
                         dispatchGroup.leave()
                     }
@@ -949,6 +951,21 @@ extension TaggerAPIHandler {
         
         // Wait for all generations to complete
         dispatchGroup.notify(queue: .main) {
+            // Check if any requests failed
+            let failedRequests = requestMap.getFailedRequests()
+            let hasFailures = !failedRequests.isEmpty
+            
+            // If any API failed, clear model cache and log errors
+            if hasFailures {
+                print("❌ API failures detected. Clearing model cache.")
+                print("   Failed requests: \(failedRequests.count)")
+                for failedRequest in failedRequests {
+                    print("   - Request \(failedRequest.id): \(failedRequest.errorMessage ?? "Unknown error")")
+                }
+                // Clear model cache when errors occur
+                ObjectDetectionModelHandler.shared.clearCache()
+            }
+            
             // Validate: Check if we got any generated images
             guard !productImageMap.isEmpty || !categoryImageMap.isEmpty else {
                 print("❌ No room images generated. No classification or image URLs returned. Clearing model cache and returning empty result.")
@@ -956,7 +973,7 @@ extension TaggerAPIHandler {
                 ObjectDetectionModelHandler.shared.clearCache()
                 // Clear personalization cache
                 PersonalizationCache.shared.clear()
-                // Return empty result
+                // Return empty result with error information
                 let emptyResult = PersonalizationResult(
                     productImageMap: [:],
                     categoryImageMap: [:],
@@ -974,7 +991,12 @@ extension TaggerAPIHandler {
                 cachedImages: cachedImages
             )
             
-            print("📦 Personalization complete: \(productImageMap.count) products, \(categoryImageMap.count) categories, \(requestMap.count) requests tracked")
+            if hasFailures {
+                print("⚠️ Personalization complete with errors: \(productImageMap.count) products, \(categoryImageMap.count) categories, \(failedRequests.count) failures, \(requestMap.count) requests tracked")
+            } else {
+                print("📦 Personalization complete: \(productImageMap.count) products, \(categoryImageMap.count) categories, \(requestMap.count) requests tracked")
+            }
+            
             completion(.success(result))
         }
     }

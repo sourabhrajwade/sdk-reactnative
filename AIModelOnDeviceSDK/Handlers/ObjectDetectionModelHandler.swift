@@ -206,7 +206,8 @@ public class ObjectDetectionModelHandler {
         }
         
         // Strategy 4: Download from Apple's CDN if not found locally
-        if modelType == .yolov3 {
+        // Support all YOLOv3 variants
+        if modelType == .yolov3 || modelType == .yolov3FP16 || modelType == .yolov3Int8LUT {
             print("📥 Model not found locally, attempting to download from Apple's CDN...")
             if let downloadedModel = downloadModelFromAppleCDN(modelType: modelType) {
                 return downloadedModel

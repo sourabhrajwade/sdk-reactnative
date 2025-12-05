@@ -189,11 +189,11 @@ public class InteriorVerificationHandler {
             let totalFurnitureCoverage = furnitureDetections.reduce(0.0) { $0 + Double($1.areaPercentage) }
             let furnitureCoverageLatency = (CFAbsoluteTimeGetCurrent() - furnitureCoverageStart) * 1000
             
-            if totalFurnitureCoverage < 0.10 {
+            if totalFurnitureCoverage < 0.03 {
                 filterResults.append(FilterResult(
                     name: "Furniture Coverage",
                     passed: false,
-                    message: "Too little furniture (< 10%) - objects too far/small",
+                    message: "Too little furniture (< 3%) - objects too far/small",
                     value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
                     latency: furnitureCoverageLatency
                 ))
@@ -203,11 +203,11 @@ public class InteriorVerificationHandler {
                 return
             }
             
-            if totalFurnitureCoverage > 0.70 {
+            if totalFurnitureCoverage > 0.85 {
                 filterResults.append(FilterResult(
                     name: "Furniture Coverage",
                     passed: false,
-                    message: "Too much furniture (> 70%) - objects too close/zoomed",
+                    message: "Too much furniture (> 85%) - objects too close/zoomed",
                     value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
                     latency: furnitureCoverageLatency
                 ))
@@ -220,7 +220,7 @@ public class InteriorVerificationHandler {
             filterResults.append(FilterResult(
                 name: "Furniture Coverage",
                 passed: true,
-                message: "Good furniture coverage (10-70%)",
+                message: "Good furniture coverage (3-85%)",
                 value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
                 latency: furnitureCoverageLatency
             ))
@@ -230,12 +230,12 @@ public class InteriorVerificationHandler {
             let spreadScore = self.calculateSpreadScore(furnitureDetections)
             let spreadLatency = (CFAbsoluteTimeGetCurrent() - spreadStart) * 1000
             
-            if spreadScore < 0.3 {
+            if spreadScore < 0.03 {
                 filterResults.append(FilterResult(
                     name: "Object Spread",
                     passed: false,
                     message: "Furniture is too clumped together",
-                    value: String(format: "Score: %.2f (< 0.3)", spreadScore),
+                    value: String(format: "Score: %.2f (< 0.03)", spreadScore),
                     latency: spreadLatency
                 ))
                 result.filterResults = filterResults
@@ -257,11 +257,11 @@ public class InteriorVerificationHandler {
             let furnitureCount = furnitureDetections.count
             let clutterLatency = (CFAbsoluteTimeGetCurrent() - clutterStart) * 1000
             
-            if furnitureCount > 10 {
+            if furnitureCount > 25 {
                 filterResults.append(FilterResult(
                     name: "Clutter Filter",
                     passed: false,
-                    message: "Too many furniture objects detected (> 10)",
+                    message: "Too many furniture objects detected (> 25)",
                     value: "\(furnitureCount) objects",
                     latency: clutterLatency
                 ))
@@ -312,12 +312,12 @@ public class InteriorVerificationHandler {
             let colorScore = self.calculateColorVariance(image)
             let colorLatency = (CFAbsoluteTimeGetCurrent() - colorStart) * 1000
             
-            if colorScore < 0.3 {
+            if colorScore < 0.015 {
                 filterResults.append(FilterResult(
                     name: "Color Variance",
                     passed: false,
                     message: "Image is too dull/gray or has poor lighting",
-                    value: String(format: "Score: %.2f (< 0.3)", colorScore),
+                    value: String(format: "Score: %.3f (< 0.015)", colorScore),
                     latency: colorLatency
                 ))
                 result.filterResults = filterResults

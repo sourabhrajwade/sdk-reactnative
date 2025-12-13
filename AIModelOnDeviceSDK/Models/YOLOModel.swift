@@ -12,10 +12,15 @@ public enum YOLOModel: String, CaseIterable {
     // YOLO3 variant
     case yolov3 = "yolov3"
     
+    // FaceNet model
+    case facenet = "facenet"
+    
     public var displayName: String {
         switch self {
         case .yolov3:
             return "YOLOv3"
+        case .facenet:
+            return "FaceNet"
         }
     }
     
@@ -23,6 +28,8 @@ public enum YOLOModel: String, CaseIterable {
         switch self {
         case .yolov3:
             return "Classic YOLO3 model"
+        case .facenet:
+            return "FaceNet face recognition model"
         }
     }
     
@@ -31,6 +38,8 @@ public enum YOLOModel: String, CaseIterable {
         switch self {
         case .yolov3:
             return "YOLOv3"
+        case .facenet:
+            return "Facenet"
         }
     }
     
@@ -38,6 +47,8 @@ public enum YOLOModel: String, CaseIterable {
     var modelSubdirectory: String? {
         switch self {
         case .yolov3:
+            return "models"
+        case .facenet:
             return "models"
         }
     }

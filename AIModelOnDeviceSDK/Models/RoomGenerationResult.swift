@@ -28,6 +28,7 @@ public struct RoomGenerationResult: Identifiable {
     }
 }
 
+
 /// Complete room generation results for all categories
 public struct RoomGenerationCompleteResult {
     public let results: [RoomGenerationResult]
@@ -38,4 +39,5 @@ public struct RoomGenerationCompleteResult {
         self.totalGenerated = results.count
     }
 }
+
 

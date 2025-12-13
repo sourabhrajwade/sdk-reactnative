@@ -26,6 +26,7 @@
 
 import Foundation
 import UIKit
+import SwiftUI
 
 /// Main SDK entry point for AI Model On Device operations
 ///
@@ -496,6 +497,14 @@ public class AIModelOnDeviceSDK {
         TaggerAPIHandler.shared.generateRooms(from: taggerResult, objectImages: objectImages, objectUrls: objectUrls, completion: completion)
     }
     
+    public func generateFashion(
+        garmentImageUrl: String,
+        productType:String,
+        completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
+    ) {
+        TaggerAPIHandler.shared.generateFashion( garmentImageUrl: garmentImageUrl, productType: productType, completion: completion)
+    }
+    
     /// Personalizes categories by generating room images
     /// - Parameters:
     ///   - taggerResult: The tagger API result containing categorized images
@@ -544,5 +553,200 @@ public class AIModelOnDeviceSDK {
             completion: completion
         )
     }
+    
+    // MARK: - Image Storage
+    
+    /// Save a UIImage to local storage
+    ///
+    /// This method saves an image to the app's Documents directory as a PNG file.
+    /// If an image with the same name already exists, it will be deleted before
+    /// saving the new image.
+    ///
+    /// ## Parameters
+    ///
+    /// - `image`: The UIImage to save (required)
+    /// - `name`: The name to save the image with, without extension (required)
+    ///
+    /// ## Returns
+    ///
+    /// `Bool` - `true` if save was successful, `false` otherwise
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let success = sdk.saveImage(myImage, withName: "profile_photo")
+    /// if success {
+    ///     print("Image saved successfully")
+    /// }
+    /// ```
+    ///
+    /// ## Storage Location
+    ///
+    /// Images are saved to the app's Documents directory with `.png` extension.
+    /// The same image name will overwrite any existing image.
+    ///
+    /// ## Thread Safety
+    ///
+    /// This method is thread-safe and can be called from any thread.
+    ///
+    /// - Parameters:
+    ///   - image: The UIImage to save
+    ///   - name: The name to save the image with (without extension)
+    /// - Returns: True if save was successful, false otherwise
+    @discardableResult
+    public func saveImage(_ image: UIImage, withName name: String) -> Bool {
+        return ImageStorageHandler.shared.saveImage(image, withName: name)
+    }
+    
+    /// Fetch a UIImage from local storage
+    ///
+    /// This method retrieves a previously saved image from the app's Documents directory.
+    ///
+    /// ## Parameters
+    ///
+    /// - `name`: The name of the image to fetch, without extension (required)
+    ///
+    /// ## Returns
+    ///
+    /// `UIImage?` - The image if found, `nil` otherwise
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// if let savedImage = sdk.fetchImage(withName: "profile_photo") {
+    ///     imageView.image = savedImage
+    /// } else {
+    ///     print("Image not found")
+    /// }
+    /// ```
+    ///
+    /// ## Storage Location
+    ///
+    /// Images are retrieved from the app's Documents directory.
+    /// The method looks for files with `.png` extension.
+    ///
+    /// ## Thread Safety
+    ///
+    /// This method is thread-safe and can be called from any thread.
+    ///
+    /// - Parameter name: The name of the image to fetch (without extension)
+    /// - Returns: The UIImage if found, nil otherwise
+    public func fetchImage(withName name: String) -> UIImage? {
+        return ImageStorageHandler.shared.fetchImage(withName: name)
+    }
+    
+    // MARK: - Face Verification
+    
+    /// Find the best face image from a collection of images
+    ///
+    /// This method analyzes images to detect faces, clusters them to find the most
+    /// frequent face, and selects the highest quality image of that face.
+    ///
+    /// ## Parameters
+    ///
+    /// - `images`: Array of UIImage objects to analyze (required)
+    /// - `category`: Optional gender filter - "Men" or "Women" (optional)
+    /// - `completion`: Completion handler with `FaceVerificationResult` (required)
+    ///
+    /// ## Returns
+    ///
+    /// `Void` - Results are provided via the completion handler
+    ///
+    /// ## FaceVerificationResult Properties
+    ///
+    /// - `bestImage: UIImage?` - The best quality face image
+    /// - `faceCount: Int` - Total number of faces detected
+    /// - `mostFrequentFaceCount: Int` - Number of faces in the largest cluster
+    /// - `qualityScore: Double` - Quality score of the best face (0.0-1.0)
+    /// - `processingTime: Double` - Processing time in milliseconds
+    /// - `allFaceImages: [UIImage]` - All images containing the most frequent face
+    /// - `gender: String?` - Detected gender ("Men" or "Women")
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// sdk.findBestFaceImage(photos, category: "Men") { result in
+    ///     if let bestFace = result.bestImage {
+    ///         print("Found best face with score: \\(result.qualityScore)")
+    ///         imageView.image = bestFace
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// ## Thread Safety
+    ///
+    /// This method is thread-safe. The completion handler is called on the main queue.
+    ///
+    /// - Parameters:
+    ///   - images: Array of images to analyze
+    ///   - category: Optional gender filter ("Men" or "Women")
+    ///   - completion: Completion handler with FaceVerificationResult
+    
+    
+    /// Filter and return top N face images sorted by quality score
+    ///
+    /// This method processes multiple images and returns the top N images with the
+    /// best quality faces, sorted by quality score (highest first).
+    ///
+    /// ## Parameters
+    ///
+    /// - `images`: Array of UIImage objects to analyze (required)
+    /// - `category`: Optional gender filter - "Men" or "Women" (optional)
+    /// - `maxResults`: Maximum number of results to return (default: 15)
+    /// - `completion`: Completion handler with array of `FaceVerificationResult` (required)
+    ///
+    /// ## Returns
+    ///
+    /// `Void` - Results are provided via the completion handler
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// sdk.filterFaceResults(photos, category: "Women", maxResults: 10) { results in
+    ///     print("Found \\(results.count) best faces")
+    ///     for (index, result) in results.enumerated() {
+    ///         print("\\(index + 1). Score: \\(result.qualityScore)")
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// ## Thread Safety
+    ///
+    /// This method is thread-safe. The completion handler is called on the main queue.
+    ///
+    /// - Parameters:
+    ///   - images: Array of images to analyze
+    ///   - category: Optional gender filter ("Men" or "Women")
+    ///   - maxResults: Maximum number of results to return
+    ///   - completion: Completion handler with array of FaceVerificationResult
+    public func filterFaceResults(
+        _ images: [UIImage],
+        category: String? = nil,
+        maxResults: Int = 15,
+        completion: @escaping ([FaceObservationData]) -> Void
+    ) {
+        FaceVerificationHandler.shared.filterResults(images, category: category, maxResults: maxResults, completion: completion)
+    }
+
+    /// Pick the best image for the face that appears most frequently in the provided observations.
+    ///
+    /// This clusters observations by embedding similarity, chooses the largest cluster, then
+    /// returns the highest-quality observation within that cluster.
+    ///
+    /// - Parameters:
+    ///   - observations: Face observations (typically from `filterFaceResults`)
+    ///   - similarityThreshold: Cosine similarity threshold (0..1) to consider two faces the same.
+    /// - Returns: Best observation and all observations in the winning cluster, or `nil` if input is empty.
+    public func bestImageForMostFrequentFace(
+        from observations: [FaceObservationData],
+        similarityThreshold: Float = 0.80
+    ) -> (best: FaceObservationData, all: [FaceObservationData])? {
+        return FaceVerificationHandler.shared.bestImageForMostFrequentFace(
+            from: observations,
+            similarityThreshold: similarityThreshold
+        )
+    }
+    
+    
 }
 

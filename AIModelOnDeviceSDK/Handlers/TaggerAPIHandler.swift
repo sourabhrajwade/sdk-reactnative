@@ -16,6 +16,8 @@ public class TaggerAPIHandler {
     private let taggerAPIURL = "https://hp.gennoctua.com/api/ml/tagger"
     private let generateRoomAPIURL = "https://hp.gennoctua.com/api/gen/generate-room"
     
+    private let generateFashionAPIURL = "https://hp.gennoctua.com/api/tryon/virtual-tryon"
+    
     // Dictionary mapping object labels to room categories
     private let objectToRoomMapping: [String: String] = [
         "bed": "bedroom",
@@ -779,6 +781,7 @@ public enum TaggerAPIError: LocalizedError {
     case invalidResponse
     case timeout
     case httpError(statusCode: Int)
+    case jsonDecodingFailed
     
     public var errorDescription: String? {
         switch self {
@@ -796,6 +799,8 @@ public enum TaggerAPIError: LocalizedError {
             return "Request timed out. The API may be processing a large number of images. Please try again."
         case .httpError(let statusCode):
             return "HTTP error with status code: \(statusCode)"
+        case .jsonDecodingFailed:
+            return "Failed to decode API JSON response"
         }
     }
 }
@@ -1010,6 +1015,182 @@ extension TaggerAPIHandler {
             
             completion(.success(result))
         }
+    }
+    
+    
+    public func generateFashion(
+        garmentImageUrl: String? = nil,
+        productType:String,
+        completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
+    ) {
+        // Validate required parameters
+        
+        guard let UserImage = AIModelOnDeviceSDK.shared.fetchImage(withName: "Men") else {
+            completion(.failure(TaggerAPIError.emptyImages))
+            return
+        }
+        
+        // Use autoreleasepool to manage memory during image processing
+        autoreleasepool {
+            // Create multipart form data
+            // Create multipart form data
+            let boundary = "Boundary-\(UUID().uuidString)"
+            var body = Data()
+            
+            // Add room_type (mandatory)
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"garment_image_url\"\r\n\r\n".data(using: .utf8)!)
+            body.append((garmentImageUrl ?? "").data(using: .utf8)!)
+            body.append("\r\n".data(using: .utf8)!)
+            
+            // Resize room image to reduce upload size and memory usage
+            let resizedRoomImage = UserImage//resizeImage(UserImage, maxDimension: 1024)
+            
+            // Add room_image (mandatory - multipart form data)
+            guard let roomImageData = resizedRoomImage.jpegData(compressionQuality: 0.8) else {
+                completion(.failure(TaggerAPIError.imageConversionFailed))
+                return
+            }
+            
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"user_image\"; filename=\"room.jpg\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            body.append(roomImageData)
+            body.append("\r\n".data(using: .utf8)!)
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"product_type\"\r\n\r\n".data(using: .utf8)!)
+            body.append(productType.data(using: .utf8)!)
+            body.append("\r\n".data(using: .utf8)!)
+            body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+            
+            // Continue with request creation
+            self.createFashionGenerationRequest(body: body, boundary: boundary, completion: completion)
+        }
+    }
+    private func createFashionGenerationRequest(
+        body: Data,
+        boundary: String,
+        completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
+    ) {
+        
+        // Create request
+        guard let url = URL(string: generateFashionAPIURL) else {
+            completion(.failure(TaggerAPIError.invalidURL))
+            return
+        }
+        
+        // Create URLSessionConfiguration with very long timeout for image generation
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 600 // 10 minutes for image generation
+        config.timeoutIntervalForResource = 600
+        config.waitsForConnectivity = true
+        config.allowsCellularAccess = true
+        config.httpShouldUsePipelining = false
+        config.httpMaximumConnectionsPerHost = 1
+        config.urlCache = nil
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        
+        let sessionQueue = OperationQueue()
+        sessionQueue.name = "com.aimodelondevice.roomgeneration"
+        sessionQueue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: config, delegate: nil, delegateQueue: sessionQueue)
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("*/*", forHTTPHeaderField: "accept")
+        request.setValue("\(body.count)", forHTTPHeaderField: "Content-Length")
+        request.httpBody = body
+        request.timeoutInterval = 600 // 10 minutes
+        
+        
+        let startTime = Date()
+        
+        let task = session.dataTask(with: request) { data, response, error in
+            let elapsedTime = Date().timeIntervalSince(startTime)
+            print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
+            
+            if let error = error {
+                let nsError = error as NSError
+                print("❌ Fashion generation error: \(error.localizedDescription)")
+                
+                DispatchQueue.main.async {
+                    if nsError.code == NSURLErrorTimedOut {
+                        completion(.failure(TaggerAPIError.timeout))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                DispatchQueue.main.async {
+                    completion(.failure(TaggerAPIError.invalidResponse))
+                }
+                return
+            }
+            
+            print("📡 Fashion generation response status: \(httpResponse.statusCode)")
+            
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorMessage = String(data: data ?? Data(), encoding: .utf8) ?? "Unknown error"
+                print("❌ Fashion generation HTTP Error \(httpResponse.statusCode): \(errorMessage)")
+                DispatchQueue.main.async {
+                    completion(.failure(TaggerAPIError.httpError(statusCode: httpResponse.statusCode)))
+                }
+                return
+            }
+            
+            guard let data = data, !data.isEmpty else {
+                DispatchQueue.main.async {
+                    completion(.failure(TaggerAPIError.noData))
+                }
+                return
+            }
+            
+            // Parse JSON response into FashionGenerationResult model
+            do {
+                // Try to decode JSON using JSONSerialization since FashionGenerationResult
+                // is a simple struct and the API is expected to return keys:
+                // "status", "result" (Base64 image string), and "elapsed_time".
+                let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                guard let json = jsonObject as? [String: Any] else {
+                    print("❌ Fashion generation response is not a JSON object")
+                    DispatchQueue.main.async {
+                        completion(.failure(TaggerAPIError.jsonDecodingFailed))
+                    }
+                    return
+                }
+                
+                guard
+                      let result = json["result"] as? String else {
+                    print("❌ Missing required fields in fashion generation response: \(json)")
+                    DispatchQueue.main.async {
+                        completion(.failure(TaggerAPIError.jsonDecodingFailed))
+                    }
+                    return
+                }
+                
+                let fashionResult = FashionGenerationResult(
+                    status: "",
+                    result: result,
+                    elapsed_time: ""
+                )
+                
+                DispatchQueue.main.async {
+                    completion(.success(fashionResult))
+                }
+            } catch {
+                print("❌ Failed to decode fashion generation JSON: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion(.failure(TaggerAPIError.jsonDecodingFailed))
+                }
+            }
+        }
+        
+        task.resume()
     }
 }
 

@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "AIModelOnDeviceSDK",
     platforms: [
-        .iOS(.v13)
+        .iOS(.v16)
     ],
     products: [
         .library(

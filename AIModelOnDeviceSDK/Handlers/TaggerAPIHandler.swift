@@ -1021,11 +1021,18 @@ extension TaggerAPIHandler {
     public func generateFashion(
         garmentImageUrl: String? = nil,
         productType:String,
+        categorySlug:String,
         completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
     ) {
         // Validate required parameters
         
-        guard let UserImage = AIModelOnDeviceSDK.shared.fetchImage(withName: "Men") else {
+        var imageName = ""
+        if categorySlug == "mens_shirts" {
+            imageName = "men_face"
+        }else if categorySlug == "womens_wear" {
+            imageName = "women_face"
+        }
+        guard let UserImage = AIModelOnDeviceSDK.shared.fetchImage(withName: imageName) else {
             completion(.failure(TaggerAPIError.emptyImages))
             return
         }

@@ -262,7 +262,7 @@ public class FaceVerificationHandler {
                 return
             }
 
-            let gender = "Men"//self.faceNetHandler.classifyGender(from: normalized)
+            let gender = self.faceNetHandler.classifyGender(from: normalized)
 
             // If a category filter is provided, keep ONLY matches.
             // If gender cannot be determined, skip the image.

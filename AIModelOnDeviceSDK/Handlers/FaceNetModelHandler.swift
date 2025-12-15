@@ -22,9 +22,11 @@ public class FaceNetModelHandler {
     
     /// Lazily loaded Core ML model for FaceNet
     private var faceNetModel: MLModel?
-    
+    private var genderNetModel: MLModel?
+
     private init() {
         loadFaceNetModelIfNeeded()
+        loadGenderNetModel()
     }
     
     // MARK: - Public API
@@ -79,6 +81,38 @@ public class FaceNetModelHandler {
         return (similarity + 1.0) / 2.0
     }
     
+    private func classifyGenderWithGenderNet(from image: UIImage) -> String? {
+        guard let cgImage = image.cgImage else { return nil }
+
+        guard let model = try? VNCoreMLModel(for: GenderNet().model) else {
+            return nil
+        }
+
+        let request = VNCoreMLRequest(model: model)
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+        do {
+            try handler.perform([request])
+        } catch {
+            print("Failed to perform classification: \(error.localizedDescription)")
+            return nil
+        }
+
+        if let results = request.results as? [VNClassificationObservation] {
+            let sortedResults = results.sorted { $0.confidence > $1.confidence }
+            if let topResult = sortedResults.first {
+                if topResult.identifier == "Male" {
+                    return "Men"
+                } else if topResult.identifier == "Female" {
+                    return "Women"
+                }
+            }
+        }
+
+        return nil
+    }
+
     /// Classify gender from face image.
     ///
     /// Notes:
@@ -89,38 +123,7 @@ public class FaceNetModelHandler {
     /// - Parameter faceImage: Cropped face image to classify.
     /// - Returns: "Men" or "Women", or nil if classification fails / is uncertain.
     public func classifyGender(from faceImage: UIImage) -> String? {
-        guard let cgImage = faceImage.cgImage else { return nil }
-
-        let request = VNClassifyImageRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-
-        do {
-            try handler.perform([request])
-        } catch {
-            print("❌ Vision classification failed: \(error.localizedDescription)")
-            return nil
-        }
-
-        guard let results = request.results, !results.isEmpty else {
-            return nil
-        }
-
-        // Look at the top few labels and map them to Men/Women.
-        // Common identifiers vary; this checks several likely keywords.
-        let minConfidence: Float = 0.20
-        for obs in results.prefix(10) where obs.confidence >= minConfidence {
-            let id = obs.identifier.lowercased()
-
-            if id.contains("woman") || id.contains("female") || id.contains("girl") {
-                return "Women"
-            }
-
-            if id.contains("man") || id.contains("male") || id.contains("boy") {
-                return "Men"
-            }
-        }
-
-        return nil
+        return classifyGenderWithGenderNet(from: faceImage)
     }
     
     // MARK: - Core ML (FaceNet) path
@@ -146,6 +149,24 @@ public class FaceNetModelHandler {
             }
         } else {
             print("⚠️ FaceNet Core ML model not found in bundle (FaceNet.mlmodelc)")
+        }
+    }
+
+    private func loadGenderNetModel() {
+        guard genderNetModel == nil else { return }
+
+        let bundle = Bundle(for: FaceNetModelHandler.self)
+
+        if let url = bundle.url(forResource: "GenderNet", withExtension: "mlmodel") {
+            do {
+                let config = MLModelConfiguration()
+                genderNetModel = try MLModel(contentsOf: url, configuration: config)
+                print("✅ Loaded GenderNet Core ML model from bundle")
+            } catch {
+                print("❌ Failed to load GenderNet Core ML model: \(error.localizedDescription)")
+            }
+        } else {
+            print("⚠️ GenderNet Core ML model not found in bundle (GenderNet.mlmodel)")
         }
     }
     

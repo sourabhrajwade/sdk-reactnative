@@ -500,9 +500,10 @@ public class AIModelOnDeviceSDK {
     public func generateFashion(
         garmentImageUrl: String,
         productType:String,
+        categorySlug:String,
         completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
     ) {
-        TaggerAPIHandler.shared.generateFashion( garmentImageUrl: garmentImageUrl, productType: productType, completion: completion)
+        TaggerAPIHandler.shared.generateFashion( garmentImageUrl: garmentImageUrl, productType: productType,categorySlug:categorySlug, completion: completion)
     }
     
     /// Personalizes categories by generating room images

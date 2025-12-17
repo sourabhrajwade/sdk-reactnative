@@ -152,9 +152,9 @@ public class ObjectDetectionModelHandler {
             }
         }
         
-        // Strategy 4: Download from Apple's CDN if not found locally
+        // Strategy 4: Download from Google Cloud Storage if not found locally
         if modelType == .yolov3 {
-            print("📥 Model not found locally, attempting to download from Apple's CDN...")
+            print("📥 Model not found locally, attempting to download from Google Cloud Storage...")
             if let downloadedModel = downloadModelFromAppleCDN(modelType: modelType) {
                 return downloadedModel
             }
@@ -223,11 +223,11 @@ public class ObjectDetectionModelHandler {
         }
     }
     
-    /// Download YOLOv3 model from Apple's CDN
+    /// Download YOLOv3 model from Google Cloud Storage
     private func downloadModelFromAppleCDN(modelType: YOLOModel) -> VNCoreMLModel? {
-        // Apple CDN URL for YOLOv3 model
+        // Google Cloud Storage URL for YOLOv3 model
         let cdnURLs: [YOLOModel: String] = [
-            .yolov3: "https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3/YOLOv3.mlmodel"
+            .yolov3: "https://storage.googleapis.com/app_models_ai/YOLOv3.mlmodel"
         ]
         
         guard let urlString = cdnURLs[modelType],
@@ -251,7 +251,7 @@ public class ObjectDetectionModelHandler {
         }
         
         // Download the model
-        print("⬇️ Downloading \(modelType.rawValue) from Apple CDN...")
+        print("⬇️ Downloading \(modelType.rawValue) from Google Cloud Storage...")
         var downloadError: Error?
         var downloadedData: Data?
         let semaphore = DispatchSemaphore(value: 0)

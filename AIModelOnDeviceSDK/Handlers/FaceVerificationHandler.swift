@@ -10,7 +10,7 @@ import UIKit
 import Vision
 
 /// Result of face verification process
-public struct FaceVerificationResult {
+struct FaceVerificationResult {
     public let bestImage: UIImage
     public let faceCount: Int
     public let mostFrequentFaceCount: Int
@@ -42,7 +42,7 @@ public struct FaceVerificationResult {
 }
 
 /// Face observation with associated image and quality metrics
-public struct FaceObservationData {
+struct FaceObservationData {
     /// Original (full) image from the input array
     public let image: UIImage
 
@@ -61,7 +61,7 @@ public struct FaceObservationData {
 }
 
 /// Handler for face verification and best image selection
-public class FaceVerificationHandler {
+class FaceVerificationHandler {
     
     public static let shared = FaceVerificationHandler()
     private let faceNetHandler = FaceNetModelHandler.shared
@@ -262,7 +262,7 @@ public class FaceVerificationHandler {
                 return
             }
 
-            let gender = self.faceNetHandler.classifyGender(from: normalized)
+            let gender = self.faceNetHandler.classifyGender(from: faceCrop)
 
             // If a category filter is provided, keep ONLY matches.
             // If gender cannot be determined, skip the image.

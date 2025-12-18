@@ -8,8 +8,13 @@
 import Foundation
 import UIKit
 
+struct TempCacheItem {
+    let productUrl: String
+    var thumbnailImg: UIImage?
+}
+
 /// Persistent cache for personalized images in SDK
-public class PersonalizationCache {
+class PersonalizationCache {
     public static let shared = PersonalizationCache()
     
     private var memoryCache: [String: UIImage] = [:]

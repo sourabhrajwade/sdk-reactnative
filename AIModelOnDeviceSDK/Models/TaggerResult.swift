@@ -109,14 +109,14 @@ public struct TaggerResult: Identifiable {
 
 /// Best pick result with mapped image
 public struct BestPickResult {
-    public let category: String
+    public let category: TagerAPIResultCategory
     public let image: UIImage?
     public let imageUrl: String?
     public let identifier: String
     public let bestPick: BestPick
     
     public init(category: String, image: UIImage?, imageUrl: String?, identifier: String, bestPick: BestPick) {
-        self.category = category
+        self.category = TagerAPIResultCategory(rawValue: category) ?? .unknown
         self.image = image
         self.imageUrl = imageUrl
         self.identifier = identifier

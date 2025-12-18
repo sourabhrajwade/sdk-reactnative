@@ -12,31 +12,9 @@ import CoreML
 import CoreImage
 
 /// Handler for interior image verification
-public class InteriorVerificationHandler {
+class InteriorVerificationHandler {
     
     public static let shared = InteriorVerificationHandler()
-    
-    // Furniture categories (COCO dataset)
-    private let furnitureCategories: Set<String> = [
-        "chair", "couch", "bed", "dining table", "desk",
-        "refrigerator", "sofa",
-        "table", "ottoman"
-    ]
-    
-    // Categories to exclude from verification calculations (but still show in detection results)
-    private let excludedCategories: Set<String> = [
-        "bowl", "bowls",
-        "banana", "bananas",
-        "crockery",
-        "fruit", "fruits",
-        "apple", "apples",
-        "orange", "oranges",
-        "plate", "plates",
-        "cup", "cups",
-        "fork", "forks",
-        "knife", "knives",
-        "spoon", "spoons"
-    ]
     
     private init() {}
     
@@ -70,7 +48,7 @@ public class InteriorVerificationHandler {
             
             // Filter out excluded categories for verification calculations
             let relevantDetections = detections.filter { detection in
-                !self.excludedCategories.contains(detection.label.lowercased())
+                !excludedCategories.contains(detection.label.lowercased())
             }
             
             // Log all detected objects with their names and confidence scores
@@ -80,7 +58,7 @@ public class InteriorVerificationHandler {
             }
             
             // Log excluded items
-            let excludedItems = detections.filter { self.excludedCategories.contains($0.label.lowercased()) }
+            let excludedItems = detections.filter { excludedCategories.contains($0.label.lowercased()) }
             if !excludedItems.isEmpty {
                 print("🚫 Excluded \(excludedItems.count) item(s) from verification calculations:")
                 for item in excludedItems {
@@ -132,7 +110,7 @@ public class InteriorVerificationHandler {
             // Step 3: Check for person or furniture (using relevant detections only)
             let checkStart = CFAbsoluteTimeGetCurrent()
             let personDetections = relevantDetections.filter { $0.label.lowercased() == "person" }
-            let furnitureDetections = relevantDetections.filter { self.furnitureCategories.contains($0.label.lowercased()) }
+            let furnitureDetections = relevantDetections.filter { furnitureCategories.contains($0.label.lowercased()) }
             let checkLatency = (CFAbsoluteTimeGetCurrent() - checkStart) * 1000
             
             if personDetections.isEmpty && furnitureDetections.isEmpty {

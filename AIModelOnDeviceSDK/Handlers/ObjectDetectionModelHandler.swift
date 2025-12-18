@@ -11,7 +11,7 @@ import Vision
 import CoreML
 
 /// Handler for object detection using YOLO models
-public class ObjectDetectionModelHandler {
+class ObjectDetectionModelHandler {
     
     /// Shared instance for singleton pattern
     public static let shared = ObjectDetectionModelHandler()
@@ -237,7 +237,7 @@ public class ObjectDetectionModelHandler {
         }
         
         // Check cache directory first
-        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let cacheDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let modelsCacheDir = cacheDir.appendingPathComponent("AIModelOnDeviceSDK/Models", isDirectory: true)
         let cachedModelURL = modelsCacheDir.appendingPathComponent("\(modelType.modelFileName).mlmodel")
         

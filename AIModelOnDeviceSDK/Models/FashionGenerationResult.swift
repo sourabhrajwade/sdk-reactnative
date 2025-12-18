@@ -8,15 +8,12 @@
 import Foundation
 import UIKit
 
-public struct FashionGenerationResult: Identifiable {
-    public let id = UUID()
-    public let status: String
-    public let result: String // UIImage Base 64  from tagger API
-    public let elapsed_time: String // time
+public struct PersionalisationImageResult {
+    public let productUrl : String
+    public let resultImage: UIImage? // UIImage Base 64  from tagger API
     
-    public init(status: String, result: String , elapsed_time: String) {
-        self.status = status
-        self.result = result
-        self.elapsed_time = elapsed_time
+    public init(productUrl: String, resultImage: UIImage?) {
+        self.productUrl = productUrl
+        self.resultImage = resultImage
     }
 }

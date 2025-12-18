@@ -16,16 +16,14 @@ import Vision
 /// 1. Use FaceNet Core ML model (512-d embedding) if available in the app bundle
 /// 2. Fallback to Apple Vision's VNGenerateImageFeaturePrintRequest (2048-d),
 ///    then reduce to 512-d for compatibility
-public class FaceNetModelHandler {
+class FaceNetModelHandler {
     
     public static let shared = FaceNetModelHandler()
     
     /// Lazily loaded Core ML model for FaceNet
-    private var faceNetModel: MLModel?
-    private var genderNetModel: MLModel?
+    private var genderClassifierModel: MLModel?
 
     private init() {
-        loadFaceNetModelIfNeeded()
         loadGenderNetModel()
     }
     
@@ -36,12 +34,7 @@ public class FaceNetModelHandler {
     /// - Parameter faceImage: Face image (full image, not necessarily cropped)
     /// - Returns: `[Float]` of length 512, or `nil` if embedding could not be computed
     public func getEmbedding(from faceImage: UIImage) -> [Float]? {
-        // 1. Try FaceNet Core ML model (preferred, 512-d)
-//        if let embedding = getEmbeddingWithFaceNet(from: faceImage) {
-//            return ensureEmbeddingSize(embedding, targetSize: 512)
-//        }
-        
-        // 2. Fallback to Vision feature print (typically 2048-d)
+        // 1. Fallback to Vision feature print (typically 2048-d)
         if let visionEmbedding = getEmbeddingWithVision(from: faceImage) {
             // Reduce/normalize to 512-d for API compatibility
             return ensureEmbeddingSize(visionEmbedding, targetSize: 512)
@@ -126,88 +119,23 @@ public class FaceNetModelHandler {
         return classifyGenderWithGenderNet(from: faceImage)
     }
     
-    // MARK: - Core ML (FaceNet) path
-    
-    /// Load FaceNet Core ML model if it's present in the app bundle.
-    ///
-    /// Expects a compiled model named "FaceNet" with extension `.mlmodelc`.
-    /// (You should convert `facenet.tflite` → `FaceNet.mlpackage` using
-    /// `model_converter.py`, drag it into Xcode, and ensure target membership.)
-    private func loadFaceNetModelIfNeeded() {
-        guard faceNetModel == nil else { return }
-        
-        let bundle = Bundle(for: FaceNetModelHandler.self)
-        
-        // Try compiled Core ML model
-        if let url = bundle.url(forResource: "FaceNet", withExtension: "mlmodelc") {
-            do {
-                let config = MLModelConfiguration()
-                faceNetModel = try MLModel(contentsOf: url, configuration: config)
-                print("✅ Loaded FaceNet Core ML model from bundle")
-            } catch {
-                print("❌ Failed to load FaceNet Core ML model: \(error.localizedDescription)")
-            }
-        } else {
-            print("⚠️ FaceNet Core ML model not found in bundle (FaceNet.mlmodelc)")
-        }
-    }
+    // MARK: - Core ML (GenderClassifierModel) path
 
     private func loadGenderNetModel() {
-        guard genderNetModel == nil else { return }
+        guard genderClassifierModel == nil else { return }
 
         let bundle = Bundle(for: FaceNetModelHandler.self)
 
-        if let url = bundle.url(forResource: "GenderNet", withExtension: "mlmodel") {
+        if let url = bundle.url(forResource: "genderClassifierModel", withExtension: "mlmodel") {
             do {
                 let config = MLModelConfiguration()
-                genderNetModel = try MLModel(contentsOf: url, configuration: config)
+                genderClassifierModel = try MLModel(contentsOf: url, configuration: config)
                 print("✅ Loaded GenderNet Core ML model from bundle")
             } catch {
                 print("❌ Failed to load GenderNet Core ML model: \(error.localizedDescription)")
             }
         } else {
             print("⚠️ GenderNet Core ML model not found in bundle (GenderNet.mlmodel)")
-        }
-    }
-    
-    /// Try to get embedding using FaceNet Core ML model (expected 512-d output)
-    private func getEmbeddingWithFaceNet(from faceImage: UIImage) -> [Float]? {
-        loadFaceNetModelIfNeeded()
-        guard let model = faceNetModel else { return nil }
-        
-        // Resize to FaceNet input size (160x160) as used in model_converter.py
-        let targetSize = CGSize(width: 160, height: 160)
-        guard let resized = resize(image: faceImage, targetSize: targetSize),
-              let pixelBuffer = pixelBuffer(from: resized, width: 160, height: 160) else {
-            print("❌ Failed to create pixel buffer for FaceNet input")
-            return nil
-        }
-        
-        do {
-            // Input name must match model_converter.py ("input_1")
-            let input = try MLDictionaryFeatureProvider(dictionary: [
-                "input_1": pixelBuffer
-            ])
-            let output = try model.prediction(from: input)
-            
-            // Take the first multi-array output as embedding
-            guard let firstName = output.featureNames.first,
-                  let feature = output.featureValue(for: firstName),
-                  let array = feature.multiArrayValue else {
-                print("❌ FaceNet model output missing MLMultiArray")
-                return nil
-            }
-            
-            let count = array.count
-            var embedding = [Float](repeating: 0, count: count)
-            for i in 0..<count {
-                embedding[i] = Float(truncating: array[i])
-            }
-            
-            return embedding
-        } catch {
-            print("❌ FaceNet Core ML prediction failed: \(error.localizedDescription)")
-            return nil
         }
     }
     

@@ -157,15 +157,15 @@ public class TaggerAPIHandler {
         request.timeoutInterval = 300 // 5 minutes
         
         // Create mapping of API ID (1-based index) to image identifier
-        let idToIdentifierMap: [Int: String] = Dictionary(uniqueKeysWithValues: 
-            imagesToProcess.enumerated().map { (index, imageWithID) in
-                (index + 1, imageWithID.identifier)
-            }
+        let idToIdentifierMap: [Int: String] = Dictionary(uniqueKeysWithValues:
+                                                            imagesToProcess.enumerated().map { (index, imageWithID) in
+            (index + 1, imageWithID.identifier)
+        }
         )
         
         // Create mapping of identifier to image
         let identifierToImageMap: [String: UIImage] = Dictionary(uniqueKeysWithValues:
-            imagesToProcess.map { ($0.identifier, $0.image) }
+                                                                    imagesToProcess.map { ($0.identifier, $0.image) }
         )
         
         // Perform request on background queue to avoid blocking
@@ -360,103 +360,32 @@ public class TaggerAPIHandler {
     ///   - objectImages: Dictionary mapping object labels to images ["bed": bedImage, "sofa": sofaImage, "table": tableImage] (optional, deprecated - use objectUrls instead)
     ///   - objectUrls: Dictionary mapping room types to arrays of object image URLs ["bedroom": [url1, url2], "living_room": [url1, url2]]
     ///   - completion: Completion handler with RoomGenerationCompleteResult or error
-    public func generateRooms(
-        from taggerResult: TaggerCompleteResult,
-        objectImages: [String: UIImage]? = nil,
-        objectUrls: [String: [String]]? = nil,
-        completion: @escaping (Result<RoomGenerationCompleteResult, Error>) -> Void
-    ) {
-        // Process on background queue
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            var generationResults: [RoomGenerationResult] = []
-            let dispatchGroup = DispatchGroup()
-            let resultQueue = DispatchQueue(label: "com.aimodelondevice.roomgeneration", attributes: .concurrent)
-            
-            // Process best picks - these are the main categories we want to generate
-            for bestPick in taggerResult.bestPicks {
-                let roomType = bestPick.category
-                
-                // Get room image - UIImage is required, imageUrl is optional
-                guard let roomImage = bestPick.image else {
-                    print("⚠️ MISSING room_image for \(roomType): No UIImage available in BestPickResult. The generate-room API requires room_image (multipart form data).")
-                    continue
-                }
-                
-                // Get object URLs for this room type
-                guard let objectUrlList = objectUrls?[roomType], !objectUrlList.isEmpty else {
-                    // Fallback to objectImages if provided (legacy support)
-                    if let objectImages = objectImages,
-                       let objectLabel = self.roomToObjectMapping[roomType],
-                       let objectImage = objectImages[objectLabel] {
-                        print("⚠️ MISSING object_url for \(roomType): Using legacy objectImages. Please migrate to objectUrls. The generate-room API requires object_url parameter.")
-                        dispatchGroup.enter()
-                        self.generateRoom(
-                            roomType: roomType,
-                            roomImage: roomImage,
-                            roomImageUrl: bestPick.imageUrl,
-                            objectImage: objectImage
-                        ) { result in
-                            resultQueue.async(flags: .barrier) {
-                                switch result {
-                                case .success(let roomResult):
-                                    generationResults.append(roomResult)
-                                    print("✅ Generated room for \(roomType)")
-                                case .failure(let error):
-                                    print("❌ Failed to generate room for \(roomType): \(error.localizedDescription)")
-                                }
-                            }
-                            dispatchGroup.leave()
-                        }
-                        continue
-                    }
-                    print("⚠️ MISSING object_url for \(roomType): No object URLs found. The generate-room API requires object_url parameter. Please provide product URLs via categoryProductUrls parameter.")
-                    continue
-                }
-                
-                // Process each object URL for this room type
-                for objectUrl in objectUrlList {
-                    dispatchGroup.enter()
-                    
-                    self.generateRoom(
-                        roomType: roomType,
-                        roomImage: roomImage,
-                        roomImageUrl: bestPick.imageUrl, // Optional, for logging
-                        objectUrl: objectUrl
-                    ) { result in
-                        resultQueue.async(flags: .barrier) {
-                            switch result {
-                            case .success(let roomResult):
-                                generationResults.append(roomResult)
-                                print("✅ Generated room for \(roomType) with object \(objectUrl)")
-                            case .failure(let error):
-                                print("❌ Failed to generate room for \(roomType) with object \(objectUrl): \(error.localizedDescription)")
-                            }
-                        }
-                        dispatchGroup.leave()
-                    }
-                }
-            }
-            
-            // Wait for all generations to complete
-            dispatchGroup.notify(queue: .main) {
-                let completeResult = RoomGenerationCompleteResult(results: generationResults)
-                completion(.success(completeResult))
-            }
-        }
-    }
+    
     
     /// Generate a single room image using room_image (multipart) and object_url
-    private func generateRoom(
+    public func generateRoom(
         roomType: String,
-        roomImage: UIImage,
         roomImageUrl: String? = nil,
         objectUrl: String? = nil,
         objectImage: UIImage? = nil,
-        completion: @escaping (Result<RoomGenerationResult, Error>) -> Void
+        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
     ) {
+        var tagType = ""
+        if ["beds", "bed", "bedroom"].contains(roomType) {
+            tagType = "bedroom"
+        }else if ["sofas", "sofa", "living_room"].contains(roomType) {
+            tagType = "living_room"
+        }else if ["tables","armchair" ,"table", "dining", "dining_room"].contains(roomType){
+            tagType = "dining_room"
+        }else {
+            tagType = "living_room"
+        }
+            
         // Validate required parameters
+        guard let roomImage = ImageStorageHandler.shared.fetchRoomImage(withName: tagType) else {
+            completion(.failure(TaggerAPIError.emptyImages))
+            return
+        }
         guard roomImage != nil else {
             completion(.failure(TaggerAPIError.emptyImages))
             return
@@ -478,7 +407,7 @@ public class TaggerAPIHandler {
             // Add room_type (mandatory)
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"room_type\"\r\n\r\n".data(using: .utf8)!)
-            body.append(roomType.data(using: .utf8)!)
+            body.append(tagType.data(using: .utf8)!)
             body.append("\r\n".data(using: .utf8)!)
             
             // Resize room image to reduce upload size and memory usage
@@ -542,16 +471,23 @@ public class TaggerAPIHandler {
             body.append("--\(boundary)--\r\n".data(using: .utf8)!)
             
             // Continue with request creation
-            self.createRoomGenerationRequest(
-                body: body,
-                boundary: boundary,
-                roomType: roomType,
-                roomImage: roomImage,
-                roomImageUrl: roomImageUrl,
-                objectUrl: objectUrl,
-                objectImage: objectImage,
-                completion: completion
-            )
+            
+            self.createRoomGenerationRequest(body: body, boundary: boundary) { result in
+                switch result {
+                case .success(let img):
+                    if let img {
+                        let persionalisationImageResult = PersionalisationImageResult(productUrl: objectUrl ?? "", resultImage: img)
+                        TempCacheHandler.shared.storeThumbnail(img, forProductUrl: objectUrl ?? "")
+                        completion(.success(persionalisationImageResult))
+                    }else {
+                        print("❌ Fashion generation failed:")
+                        completion(.failure(TaggerAPIError.emptyImages))
+                    }
+                case .failure(let error):
+                    print("❌ Fashion generation failed: \(error.localizedDescription)")
+                    completion(.failure(error))
+                }
+            }
         }
     }
     
@@ -559,12 +495,7 @@ public class TaggerAPIHandler {
     private func createRoomGenerationRequest(
         body: Data,
         boundary: String,
-        roomType: String,
-        roomImage: UIImage,
-        roomImageUrl: String? = nil,
-        objectUrl: String? = nil,
-        objectImage: UIImage? = nil,
-        completion: @escaping (Result<RoomGenerationResult, Error>) -> Void
+        completion: @escaping (Result<UIImage?, Error>) -> Void
     ) {
         
         // Create request
@@ -598,16 +529,16 @@ public class TaggerAPIHandler {
         request.httpBody = body
         request.timeoutInterval = 600 // 10 minutes
         
-        print("📡 Generating room for \(roomType)...")
+        
         let startTime = Date()
         
         let task = session.dataTask(with: request) { data, response, error in
             let elapsedTime = Date().timeIntervalSince(startTime)
-            print("📡 Room generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
+            print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
             
             if let error = error {
                 let nsError = error as NSError
-                print("❌ Room generation error: \(error.localizedDescription)")
+                print("❌ Fashion generation error: \(error.localizedDescription)")
                 
                 DispatchQueue.main.async {
                     if nsError.code == NSURLErrorTimedOut {
@@ -626,11 +557,11 @@ public class TaggerAPIHandler {
                 return
             }
             
-            print("📡 Room generation response status: \(httpResponse.statusCode)")
+            print("📡 Fashion generation response status: \(httpResponse.statusCode)")
             
             guard (200...299).contains(httpResponse.statusCode) else {
                 let errorMessage = String(data: data ?? Data(), encoding: .utf8) ?? "Unknown error"
-                print("❌ Room generation HTTP Error \(httpResponse.statusCode): \(errorMessage)")
+                print("❌ Fashion generation HTTP Error \(httpResponse.statusCode): \(errorMessage)")
                 DispatchQueue.main.async {
                     completion(.failure(TaggerAPIError.httpError(statusCode: httpResponse.statusCode)))
                 }
@@ -654,24 +585,16 @@ public class TaggerAPIHandler {
             }
             
             print("✅ Successfully generated room image (\(data.count / 1024)KB)")
+                
+                DispatchQueue.main.async {
+                    completion(.success(generatedImage))
+                }
             
-            let roomResult = RoomGenerationResult(
-                category: roomType,
-                roomImage: roomImage,
-                objectImage: objectImage,
-                objectUrl: objectUrl,
-                generatedImage: generatedImage,
-                roomType: roomType
-            )
-            
-            DispatchQueue.main.async {
-                completion(.success(roomResult))
-            }
         }
         
         task.resume()
     }
-
+    
     /// Resize image to reduce upload size
     private func resizeImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
         let size = image.size
@@ -694,82 +617,6 @@ public class TaggerAPIHandler {
         return UIGraphicsGetImageFromCurrentImageContext() ?? image
     }
     
-    /// Personalizes categories by generating room images
-    /// - Parameters:
-    ///   - taggerResult: The tagger API result
-    ///   - categoryProductUrls: Dictionary mapping category IDs to product URLs
-    ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types
-    ///   - completion: Completion handler with categoryId -> generated UIImage mapping
-    public func personalizeCategories(
-        from taggerResult: TaggerCompleteResult,
-        categoryProductUrls: [Int: [String]],
-        categoryRoomTypeMap: [Int: String],
-        completion: @escaping (Result<[Int: UIImage], Error>) -> Void
-    ) {
-        // Build objectUrls by room type from categoryProductUrls
-        var objectUrls: [String: [String]] = [:]
-        var roomTypeToCategoryIds: [String: [Int]] = [:]
-        
-        for (categoryId, productUrls) in categoryProductUrls {
-            guard let roomType = categoryRoomTypeMap[categoryId] else {
-                print("⚠️ No room_type mapping for category \(categoryId)")
-                continue
-            }
-            
-            if objectUrls[roomType] == nil {
-                objectUrls[roomType] = []
-                roomTypeToCategoryIds[roomType] = []
-            }
-            objectUrls[roomType]?.append(contentsOf: productUrls)
-            roomTypeToCategoryIds[roomType]?.append(categoryId)
-        }
-        
-        guard !objectUrls.isEmpty else {
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
-        }
-        
-        print("📦 Personalizing categories with room generation...")
-        print("   Room types: \(objectUrls.keys.joined(separator: ", "))")
-        for (roomType, urls) in objectUrls {
-            print("   \(roomType): \(urls.count) product URLs for \(roomTypeToCategoryIds[roomType]?.count ?? 0) categories")
-        }
-        
-        // Generate rooms
-        self.generateRooms(
-            from: taggerResult,
-            objectUrls: objectUrls
-        ) { result in
-            switch result {
-            case .success(let roomGenerationResult):
-                // Map generated images back to category IDs
-                var categoryImages: [Int: UIImage] = [:]
-                
-                // Group results by room type - take first image for each room type
-                var roomTypeToFirstImage: [String: UIImage] = [:]
-                for roomResult in roomGenerationResult.results {
-                    if roomTypeToFirstImage[roomResult.roomType] == nil {
-                        roomTypeToFirstImage[roomResult.roomType] = roomResult.generatedImage
-                    }
-                }
-                
-                // Assign generated image to each category in that room type
-                for (roomType, categoryIds) in roomTypeToCategoryIds {
-                    if let generatedImage = roomTypeToFirstImage[roomType] {
-                        for categoryId in categoryIds {
-                            categoryImages[categoryId] = generatedImage
-                        }
-                        print("✅ Assigned generated image to \(categoryIds.count) categories for room_type \(roomType)")
-                    }
-                }
-                
-                completion(.success(categoryImages))
-                
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
 }
 
 /// Tagger API errors
@@ -806,233 +653,21 @@ public enum TaggerAPIError: LocalizedError {
 }
 
 extension TaggerAPIHandler {
-    /// Personalizes products with full tracking, caching, and result object
-    /// - Parameters:
-    ///   - taggerResult: The tagger API result containing categorized images
-    ///   - productUrls: Dictionary mapping product IDs to product image URLs [productId: url]
-    ///   - productCategoryMap: Dictionary mapping product IDs to category IDs [productId: categoryId]
-    ///   - categoryRoomTypeMap: Dictionary mapping category IDs to room types [categoryId: "bedroom"|"living_room"|"dining_room"]
-    ///   - clearCache: Whether to clear cache before generating (default: true)
-    ///   - minimumProductCount: Minimum number of products required for personalization (default: 3)
-    ///   - completion: Completion handler with PersonalizationResult containing all mappings and cached images
-    public func personalizeProducts(
-        from taggerResult: TaggerCompleteResult,
-        productUrls: [Int: String],
-        productCategoryMap: [Int: Int],
-        categoryRoomTypeMap: [Int: String],
-        clearCache: Bool = true,
-        minimumProductCount: Int = 3,
-        completion: @escaping (Result<PersonalizationResult, Error>) -> Void
-    ) {
-        // Clear cache if requested
-        if clearCache {
-            PersonalizationCache.shared.clear()
-        }
-        
-        // Validate: Check if we have valid bestPicks with room images
-        let validBestPicks = taggerResult.bestPicks.filter { $0.image != nil }
-        guard !validBestPicks.isEmpty else {
-            print("❌ No room images available from tagger result. Clearing model cache and returning empty result.")
-            // Clear model cache
-            ObjectDetectionModelHandler.shared.clearCache()
-            // Return empty result
-            let emptyResult = PersonalizationResult(
-                productImageMap: [:],
-                categoryImageMap: [:],
-                requestMap: PersonalizationRequestMap(),
-                cachedImages: [:]
-            )
-            completion(.success(emptyResult))
-            return
-        }
-        
-        // Build request map and organize by room type
-        var requestMap = PersonalizationRequestMap()
-        var roomTypeToProducts: [String: [(productId: Int, categoryId: Int, objectUrl: String)]] = [:]
-        
-        for (productId, objectUrl) in productUrls {
-            guard let categoryId = productCategoryMap[productId],
-                  let roomType = categoryRoomTypeMap[categoryId] else {
-                print("⚠️ Missing mapping for product \(productId)")
-                continue
-            }
-            
-            // Create request tracking object
-            let requestId = "product-\(productId)"
-            let request = PersonalizationRequest(
-                id: requestId,
-                productId: productId,
-                categoryId: categoryId,
-                roomType: roomType,
-                objectUrl: objectUrl
-            )
-            requestMap.addRequest(request)
-            
-            if roomTypeToProducts[roomType] == nil {
-                roomTypeToProducts[roomType] = []
-            }
-            roomTypeToProducts[roomType]?.append((productId: productId, categoryId: categoryId, objectUrl: objectUrl))
-        }
-        
-        // Validate: Check minimum product count requirement
-        let validProductCount = requestMap.getAllRequests().count
-        guard validProductCount >= minimumProductCount else {
-            print("❌ Insufficient products for personalization. Required: \(minimumProductCount), Found: \(validProductCount). Clearing model cache.")
-            ObjectDetectionModelHandler.shared.clearCache()
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
-        }
-        
-        guard !requestMap.getAllRequests().isEmpty else {
-            print("❌ No valid products to personalize. Clearing model cache.")
-            ObjectDetectionModelHandler.shared.clearCache()
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
-        }
-        
-        print("📦 Personalizing \(requestMap.count) products...")
-        
-        // Generate images for all products in parallel
-        var productImageMap: [Int: String] = [:]
-        var categoryImageMap: [Int: String] = [:]
-        var cachedImages: [String: UIImage] = [:]
-        let dispatchGroup = DispatchGroup()
-        let resultQueue = DispatchQueue(label: "com.aimodelondevice.personalization", attributes: .concurrent)
-        
-        // Process each room type
-        for (roomType, products) in roomTypeToProducts {
-            // Find the best pick for this room type
-            guard let bestPick = taggerResult.bestPicks.first(where: { $0.category == roomType }),
-                  let roomImage = bestPick.image else {
-                print("⚠️ No room image available for room_type: \(roomType)")
-                continue
-            }
-            
-            // Generate images for each product in this room type
-            for product in products {
-                dispatchGroup.enter()
-                
-                let objectUrl = product.objectUrl
-                let productId = product.productId
-                let categoryId = product.categoryId
-                let requestId = "product-\(productId)"
-                
-                print("   🎨 Generating image for product \(productId) with room_type: \(roomType), objectUrl: \(objectUrl)")
-                
-                self.generateRoom(
-                    roomType: roomType,
-                    roomImage: roomImage,
-                    roomImageUrl: bestPick.imageUrl,
-                    objectUrl: objectUrl
-                ) { result in
-                    resultQueue.async(flags: .barrier) {
-                        switch result {
-                        case .success(let roomResult):
-                            // Convert to base64 data URL
-                            if let imageData = roomResult.generatedImage.jpegData(compressionQuality: 0.9) {
-                                let base64String = imageData.base64EncodedString()
-                                let dataUrl = "data:image/jpeg;base64," + base64String
-                                
-                                // Update request with response
-                                requestMap.updateRequest(id: requestId, image: roomResult.generatedImage, imageUrl: dataUrl)
-                                
-                                // Store in cache
-                                let cacheKey = "product-\(productId)"
-                                PersonalizationCache.shared.storeImage(roomResult.generatedImage, forKey: cacheKey)
-                                
-                                // Update maps
-                                productImageMap[productId] = dataUrl
-                                cachedImages[cacheKey] = roomResult.generatedImage
-                                
-                                // Also update category image map (use first product's image for category)
-                                if categoryImageMap[categoryId] == nil {
-                                    categoryImageMap[categoryId] = dataUrl
-                                    let categoryCacheKey = "category-\(categoryId)"
-                                    PersonalizationCache.shared.storeImage(roomResult.generatedImage, forKey: categoryCacheKey)
-                                    cachedImages[categoryCacheKey] = roomResult.generatedImage
-                                }
-                                
-                                print("   ✅ Generated and cached image for product \(productId)")
-                            }
-                        case .failure(let error):
-                            print("   ❌ Error generating image for product \(productId): \(error.localizedDescription)")
-                            // Store error in request
-                            requestMap.updateRequestWithError(id: requestId, error: error, message: error.localizedDescription)
-                        }
-                        dispatchGroup.leave()
-                    }
-                }
-            }
-        }
-        
-        // Wait for all generations to complete
-        dispatchGroup.notify(queue: .main) {
-            // Check if any requests failed
-            let failedRequests = requestMap.getFailedRequests()
-            let hasFailures = !failedRequests.isEmpty
-            
-            // If any API failed, clear model cache and log errors
-            if hasFailures {
-                print("❌ API failures detected. Clearing model cache.")
-                print("   Failed requests: \(failedRequests.count)")
-                for failedRequest in failedRequests {
-                    print("   - Request \(failedRequest.id): \(failedRequest.errorMessage ?? "Unknown error")")
-                }
-                // Clear model cache when errors occur
-                ObjectDetectionModelHandler.shared.clearCache()
-            }
-            
-            // Validate: Check if we got any generated images
-            guard !productImageMap.isEmpty || !categoryImageMap.isEmpty else {
-                print("❌ No room images generated. No classification or image URLs returned. Clearing model cache and returning empty result.")
-                // Clear model cache
-                ObjectDetectionModelHandler.shared.clearCache()
-                // Clear personalization cache
-                PersonalizationCache.shared.clear()
-                // Return empty result with error information
-                let emptyResult = PersonalizationResult(
-                    productImageMap: [:],
-                    categoryImageMap: [:],
-                    requestMap: requestMap,
-                    cachedImages: [:]
-                )
-                completion(.success(emptyResult))
-                return
-            }
-            
-            let result = PersonalizationResult(
-                productImageMap: productImageMap,
-                categoryImageMap: categoryImageMap,
-                requestMap: requestMap,
-                cachedImages: cachedImages
-            )
-            
-            if hasFailures {
-                print("⚠️ Personalization complete with errors: \(productImageMap.count) products, \(categoryImageMap.count) categories, \(failedRequests.count) failures, \(requestMap.count) requests tracked")
-            } else {
-                print("📦 Personalization complete: \(productImageMap.count) products, \(categoryImageMap.count) categories, \(requestMap.count) requests tracked")
-            }
-            
-            completion(.success(result))
-        }
-    }
-    
     
     public func generateFashion(
-        garmentImageUrl: String? = nil,
+        garmentImageUrl: String,
         productType:String,
         categorySlug:String,
-        completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
+        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
     ) {
         // Validate required parameters
-        
         var imageName = ""
         if categorySlug == "mens_shirts" {
             imageName = "men_face"
         }else if categorySlug == "womens_wear" {
             imageName = "women_face"
         }
-        guard let UserImage = AIModelOnDeviceSDK.shared.fetchImage(withName: imageName) else {
+        guard let UserImage = ImageStorageHandler.shared.fetchUserImage(withName: imageName) else {
             completion(.failure(TaggerAPIError.emptyImages))
             return
         }
@@ -1071,13 +706,29 @@ extension TaggerAPIHandler {
             body.append("--\(boundary)--\r\n".data(using: .utf8)!)
             
             // Continue with request creation
-            self.createFashionGenerationRequest(body: body, boundary: boundary, completion: completion)
+            self.createFashionGenerationRequest(body: body, boundary: boundary) { result in
+                switch result {
+                case .success(let strBase64):
+                    if let strBase64 {
+                        let img = UIImage.fromBase64DataURL(strBase64)
+                        let persionalisationImageResult = PersionalisationImageResult(productUrl: garmentImageUrl, resultImage: img)
+                        TempCacheHandler.shared.storeThumbnail(img, forProductUrl: garmentImageUrl)
+                        completion(.success(persionalisationImageResult))
+                    }else {
+                        print("❌ Fashion generation failed:")
+                        completion(.failure(TaggerAPIError.emptyImages))
+                    }
+                case .failure(let error):
+                    print("❌ Fashion generation failed: \(error.localizedDescription)")
+                    completion(.failure(error))
+                }
+            }
         }
     }
     private func createFashionGenerationRequest(
         body: Data,
         boundary: String,
-        completion: @escaping (Result<FashionGenerationResult, Error>) -> Void
+        completion: @escaping (Result<String?, Error>) -> Void
     ) {
         
         // Create request
@@ -1172,7 +823,7 @@ extension TaggerAPIHandler {
                 }
                 
                 guard
-                      let result = json["result"] as? String else {
+                    let result = json["result"] as? String else {
                     print("❌ Missing required fields in fashion generation response: \(json)")
                     DispatchQueue.main.async {
                         completion(.failure(TaggerAPIError.jsonDecodingFailed))
@@ -1180,14 +831,8 @@ extension TaggerAPIHandler {
                     return
                 }
                 
-                let fashionResult = FashionGenerationResult(
-                    status: "",
-                    result: result,
-                    elapsed_time: ""
-                )
-                
                 DispatchQueue.main.async {
-                    completion(.success(fashionResult))
+                    completion(.success(result))
                 }
             } catch {
                 print("❌ Failed to decode fashion generation JSON: \(error.localizedDescription)")
@@ -1201,3 +846,25 @@ extension TaggerAPIHandler {
     }
 }
 
+extension UIImage {
+    /// Supports plain base64 or "data:image/...;base64,xxxx"
+    static func fromBase64DataURL(_ input: String) -> UIImage? {
+        // Remove whitespace/newlines just in case
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // If it's a data URL, split off the header
+        let base64Part: String
+        if let commaIndex = trimmed.firstIndex(of: ","),
+           trimmed[..<commaIndex].contains("base64") {
+            base64Part = String(trimmed[trimmed.index(after: commaIndex)...])
+        } else {
+            base64Part = trimmed
+        }
+        
+        // Base64 decode -> Data -> UIImage
+        guard let data = Data(base64Encoded: base64Part, options: [.ignoreUnknownCharacters]) else {
+            return nil
+        }
+        return UIImage(data: data)
+    }
+}

@@ -375,9 +375,12 @@ public class TaggerAPIHandler {
             tagType = "bedroom"
         }else if ["sofas", "sofa", "living_room"].contains(roomType) {
             tagType = "living_room"
-        }else if ["tables","armchair" ,"table", "dining", "dining_room"].contains(roomType){
+        }else if ["tables","table", "dining", "dining_room"].contains(roomType){
             tagType = "dining_room"
-        }else {
+        }else if ["armchair"].contains(roomType) {
+            tagType = "living_room"
+        }
+        else {
             tagType = "living_room"
         }
             

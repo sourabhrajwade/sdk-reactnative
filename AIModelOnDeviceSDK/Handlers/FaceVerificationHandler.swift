@@ -150,9 +150,6 @@ class FaceVerificationHandler {
         category: String? = nil,
         completion: @escaping (FaceObservationData?) -> Void
     ) {
-        if let category = category {
-            print("   Filtering for category: \(category)")
-        }
 
         processImageForSingleFace(
             originalImage: image,
@@ -171,7 +168,6 @@ class FaceVerificationHandler {
     public func filterResults(
         _ images: [UIImage],
         category: String? = nil,
-        maxResults: Int = 15,
         completion: @escaping ([FaceObservationData]) -> Void
     ) {
         guard !images.isEmpty else {
@@ -222,10 +218,6 @@ class FaceVerificationHandler {
 
                 // Sort by face quality (highest first) and cap to maxResults
                 results.sort { $0.qualityScore > $1.qualityScore }
-                if maxResults > 0, results.count > maxResults {
-                    results = Array(results.prefix(maxResults))
-                }
-
                 print("✅ Returning \(results.count) best face images")
                 completion(results)
             }
@@ -263,15 +255,6 @@ class FaceVerificationHandler {
             }
 
             let gender = self.faceNetHandler.classifyGender(from: faceCrop)
-
-            // If a category filter is provided, keep ONLY matches.
-            // If gender cannot be determined, skip the image.
-            if let category {
-                guard gender == category else {
-                    completion(nil)
-                    return
-                }
-            }
 
             let qualityScore = self.calculateFaceQuality(observation: observation, image: normalized)
 

@@ -20,21 +20,23 @@ final class SDKPersonalizationViewModel: ObservableObject {
     private let fashionPersonalizationService = FashionPersonalizationService.shared
     
     func startPersonalization(
-        persionalisationType: PersionalisationType,
         onComplete: @escaping (String) -> Void
     ) async {
         isProcessing = true
         errorMessage = nil
         currentStep = "Initializing..."
+        let sdkOptions = AIModelOnDeviceSDK.shared.sdkOptions
         do {
-            if persionalisationType == .fashion {
+            switch sdkOptions.persionalisationType {
+            case.all :
                 try await fashionPersonalizationService.runPersonalizationPipeline { [weak self] step in
                     Task { @MainActor in
                         self?.currentStep = step
                     }
                 }
-                onComplete("ersionalization completed.")
-            }else {
+                Task { @MainActor in
+                    self.currentStep = "Fashion Persionalization completed."
+                }
                 try await personalizationService.runPersonalizationPipeline(
                     progressUpdate: { [weak self] step in
                         Task { @MainActor in
@@ -42,9 +44,31 @@ final class SDKPersonalizationViewModel: ObservableObject {
                         }
                     }
                 )
-                onComplete("Persionalization completed.")
+                isProcessing = false
+                onComplete("Homegoods Persionalization completed.")
+            case .homegoods:
+                try await personalizationService.runPersonalizationPipeline(
+                    progressUpdate: { [weak self] step in
+                        Task { @MainActor in
+                            self?.currentStep = step
+                        }
+                    }
+                )
+                isProcessing = false
+                onComplete("Homegoods Persionalization completed.")
+            case .fashion:
+                try await fashionPersonalizationService.runPersonalizationPipeline { [weak self] step in
+                    Task { @MainActor in
+                        self?.currentStep = step
+                    }
+                }
+                isProcessing = false
+                onComplete("Fashion Persionalization completed.")
+            case .unKnown:
+                isProcessing = false
+                onComplete("Fashion Persionalization completed.")
+                break
             }
-            isProcessing = false
         } catch {
             errorMessage = error.localizedDescription
             isProcessing = false

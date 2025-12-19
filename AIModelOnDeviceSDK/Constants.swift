@@ -7,6 +7,21 @@
 
 import Foundation
 
+public struct SDKOptions {
+    let persionalisationType : PersionalisationType
+    let photoSelectionType : PhotoSelectionType
+    
+    public init(persionalisationType: PersionalisationType, photoSelectionType: PhotoSelectionType) {
+        self.persionalisationType = persionalisationType
+        self.photoSelectionType = photoSelectionType
+    }
+}
+
+public enum PhotoSelectionType {
+    case auto
+    case manual
+}
+
 public enum PersionalisationType {
     case homegoods
     case fashion

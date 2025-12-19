@@ -73,6 +73,8 @@ public class AIModelOnDeviceSDK {
     /// Shared instance
     public static let shared = AIModelOnDeviceSDK()
     
+    var sdkOptions = SDKOptions(persionalisationType: .all, photoSelectionType: .auto)
+    
     private init() {}
     
     /// Clear model cache
@@ -209,11 +211,11 @@ public class AIModelOnDeviceSDK {
         }
     }
     
-    public func isPersionalizeRoomPhotoSaved() -> Bool {
+    public func isPersionalizeRoomPhotoEmpty() -> Bool {
         ImageStorageHandler.shared.isRoomImagesEmpty()
     }
     
-    public func isPersionalizeUserPhotoSaved() -> Bool {
+    public func isPersionalizeUserPhotoEmpty() -> Bool {
         ImageStorageHandler.shared.isUserImagesEmpty()
     }
 }

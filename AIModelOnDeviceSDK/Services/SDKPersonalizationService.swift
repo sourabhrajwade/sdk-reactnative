@@ -36,7 +36,6 @@ final class SDKPersonalizationService {
         let (photos, photoClusters) = try await clusterService.fetchPhotosWithLocationCached(
             limit: 1000,
             radius: 500.0,
-            isLocation:false,
             forceRefresh: true
         )
         

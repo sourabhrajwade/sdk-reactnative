@@ -77,7 +77,7 @@ class FaceNetModelHandler {
     private func classifyGenderWithGenderNet(from image: UIImage) -> String? {
         guard let cgImage = image.cgImage else { return nil }
 
-        guard let model = try? VNCoreMLModel(for: GenderNet().model) else {
+        guard let model = try? VNCoreMLModel(for: GenderClassifier().model) else {
             return nil
         }
 
@@ -94,15 +94,14 @@ class FaceNetModelHandler {
 
         if let results = request.results as? [VNClassificationObservation] {
             let sortedResults = results.sorted { $0.confidence > $1.confidence }
-            if let topResult = sortedResults.first {
-                if topResult.identifier == "Male" {
+            if let topResult = sortedResults.first, topResult.confidence > 0.7 {
+                if topResult.identifier.lowercased() == "male" {
                     return "Men"
-                } else if topResult.identifier == "Female" {
+                } else if topResult.identifier.lowercased() == "female" {
                     return "Women"
                 }
             }
         }
-
         return nil
     }
 
@@ -126,7 +125,7 @@ class FaceNetModelHandler {
 
         let bundle = Bundle(for: FaceNetModelHandler.self)
 
-        if let url = bundle.url(forResource: "genderClassifierModel", withExtension: "mlmodel") {
+        if let url = bundle.url(forResource: "GenderClassifier", withExtension: "mlmodel") {
             do {
                 let config = MLModelConfiguration()
                 genderClassifierModel = try MLModel(contentsOf: url, configuration: config)

@@ -8,15 +8,16 @@
 import SwiftUI
 
 public struct SDKPersonalizeView: View {
-    public let persionalisationType: PersionalisationType
-    public let onPersionalizationCompletion: (_ strMsg:String) -> Void
+    let sdkOptions: SDKOptions
+    let onPersionalizationCompletion: (_ strMsg:String) -> Void
     
     
     @StateObject private var viewModel = SDKPersonalizationViewModel()
     @Environment(\.dismiss) private var dismiss
     
-    public init(persionalisationType: PersionalisationType , onPersionalizationCompletion: @escaping ((String) -> Void)) {
-        self.persionalisationType = persionalisationType
+    public init(sdkOptions: SDKOptions , onPersionalizationCompletion: @escaping ((String) -> Void)) {
+        self.sdkOptions = sdkOptions
+        AIModelOnDeviceSDK.shared.sdkOptions = self.sdkOptions
         self.onPersionalizationCompletion = onPersionalizationCompletion
     }
     
@@ -66,7 +67,7 @@ public struct SDKPersonalizeView: View {
         }
         .onAppear {
             Task {
-                await viewModel.startPersonalization(persionalisationType: persionalisationType) { (strMsg) in
+                await viewModel.startPersonalization() { (strMsg) in
                     onPersionalizationCompletion(strMsg)
                     dismiss()
                 }

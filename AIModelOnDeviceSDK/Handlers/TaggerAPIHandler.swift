@@ -666,6 +666,8 @@ extension TaggerAPIHandler {
             imageName = "men_face"
         }else if categorySlug == "womens_wear" {
             imageName = "women_face"
+        }else {
+            imageName = "women_face"
         }
         guard let UserImage = ImageStorageHandler.shared.fetchUserImage(withName: imageName) else {
             completion(.failure(TaggerAPIError.emptyImages))

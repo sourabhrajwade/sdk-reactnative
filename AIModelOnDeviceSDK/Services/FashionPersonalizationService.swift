@@ -49,7 +49,6 @@ final class FashionPersonalizationService {
         let (photos, photoClusters) = try await clusterService.fetchPhotosWithLocationCached(
             limit: 1000,
             radius: 500.0,
-            isLocation:false,
             forceRefresh: true
         )
         
@@ -109,7 +108,7 @@ final class FashionPersonalizationService {
     func fetchBestFashionPhotoFromRemote(clusterImages:[UIImage] , progressUpdate: @escaping (String) -> Void) async throws {
         // Step 4: Find best face images using FaceVerificationHandler (similar to PersonalizationService Step 4)
         let faceResults = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[FaceObservationData], Error>) in
-            FaceVerificationHandler.shared.filterResults(clusterImages, category: nil, maxResults: 50) { results in
+            FaceVerificationHandler.shared.filterResults(clusterImages, category: nil) { results in
                 continuation.resume(returning: results)
             }
         }

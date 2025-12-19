@@ -83,7 +83,6 @@ final class PhotoClusterService {
     
     private let cacheDirectory: URL
     private let cacheFileName = "photo_cluster_cache.json"
-    private var isLocation = true
     
     private init() {
         // Set up cache directory
@@ -262,6 +261,10 @@ final class PhotoClusterService {
     /// - Returns: True if user wants to continue, False if cancelled
     @MainActor
     func showPhotoSelectionDialog() async throws -> Bool {
+        if AIModelOnDeviceSDK.shared.sdkOptions.photoSelectionType == .auto {
+            return true
+        }
+        
         guard let viewController = getCurrentViewController() else {
             print("❌ Could not find current view controller")
             //LogWriter.shared.write("❌ Could not find current view controller")
@@ -316,18 +319,18 @@ final class PhotoClusterService {
             })
             
             // "Continue" option - proceed with existing photos
-            alert.addAction(UIAlertAction(title: "Auto Fetch All Photos", style: .default) { _ in
-                print("✅ User chose to continue with gallery photos")
-                //LogWriter.shared.write("✅ User chose to continue with gallery photos")
-                continuation.resume(returning: true)
-            })
-            
-            // "Cancel" option
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
-                print("⚠️ User cancelled photo selection")
-                //LogWriter.shared.write("⚠️ User cancelled photo selection")
-                continuation.resume(returning: false)
-            })
+//            alert.addAction(UIAlertAction(title: "Auto Fetch All Photos", style: .default) { _ in
+//                print("✅ User chose to continue with gallery photos")
+//                LogWriter.shared.write("✅ User chose to continue with gallery photos")
+//                continuation.resume(returning: true)
+//            })
+//            
+//            // "Cancel" option
+//            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+//                print("⚠️ User cancelled photo selection")
+//                LogWriter.shared.write("⚠️ User cancelled photo selection")
+//                continuation.resume(returning: false)
+//            })
             
             // For iPad - set source view
             if let popoverController = alert.popoverPresentationController {
@@ -533,7 +536,7 @@ final class PhotoClusterService {
             for asset in allAssets {
                 group.addTask {
                     // Check if asset has location
-                    if self.isLocation {
+                    if AIModelOnDeviceSDK.shared.sdkOptions.photoSelectionType == .auto {
                         guard let location = asset.location else {
                             return nil
                         }
@@ -631,8 +634,7 @@ final class PhotoClusterService {
     }
     
     /// Fetch photos with location (with caching support)
-    func fetchPhotosWithLocationCached(limit: Int = 1000, radius: Double = 500,isLocation:Bool = true, forceRefresh: Bool = false) async throws -> ([PhotoLocation], [PhotoCluster]) {
-        self.isLocation = isLocation
+    func fetchPhotosWithLocationCached(limit: Int = 1000, radius: Double = 500, forceRefresh: Bool = false) async throws -> ([PhotoLocation], [PhotoCluster]) {
         // Check cache first (unless force refresh is requested)
         if !forceRefresh, let cached = loadCache(radius: radius, limit: limit) {
             print("✅ Using cached clustering results")
@@ -658,8 +660,7 @@ final class PhotoClusterService {
         return (photos, clusters)
     }
     
-    func fetchPhotos(limit: Int = 1000,isLocation:Bool = false) async throws -> ([PhotoLocation]) {
-        self.isLocation = isLocation
+    func fetchPhotos(limit: Int = 1000) async throws -> ([PhotoLocation]) {
         let photos = try await fetchPhotosWithLocationAndDialog(limit: limit)
 
         return photos

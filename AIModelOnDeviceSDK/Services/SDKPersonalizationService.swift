@@ -73,7 +73,7 @@ final class SDKPersonalizationService {
             
             for photoLocation in batch {
                 if let image = await clusterService.loadImageOfAsset(from: photoLocation.asset) {
-                    batchImages.append(ClusterImage(identifier: photoLocation.asset.localIdentifier, image: image))
+                    batchImages.append(ClusterImage(image: image, identifier: photoLocation.asset.localIdentifier))
                 }
             }
             
@@ -108,7 +108,7 @@ final class SDKPersonalizationService {
                     }
                     arrFashionAssest.append(contentsOf: farrAsset)
                 }
-                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: arrHomeGoodsAssest , arrFashionAssest: arrFashionAssest)
+                let sdkResult = SDKResult(success: true, message: "✅ Persionalisation completed", arrHomeGoodsAssest: arrHomeGoodsAssest , arrFashionAssest: arrFashionAssest)
                 complition(.success(sdkResult))
             }catch let err {
                 throw err
@@ -126,7 +126,7 @@ final class SDKPersonalizationService {
                     arrAsset.append(contentsOf: harrAsset)
                 }
                 
-                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: arrAsset , arrFashionAssest: nil)
+                let sdkResult = SDKResult(success: true, message: "✅ Persionalisation completed", arrHomeGoodsAssest: arrAsset , arrFashionAssest: nil)
                 complition(.success(sdkResult))
             }catch let err {
                 throw err
@@ -142,7 +142,7 @@ final class SDKPersonalizationService {
                     }
                     arrAsset.append(contentsOf: farrAsset)
                 }
-                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: nil , arrFashionAssest: arrAsset)
+                let sdkResult = SDKResult(success: true, message: "✅ Persionalisation completed", arrHomeGoodsAssest: nil , arrFashionAssest: arrAsset)
                 complition(.success(sdkResult))
             }catch let err {
                 throw err

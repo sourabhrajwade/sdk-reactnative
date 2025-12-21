@@ -8,16 +8,7 @@
 import Foundation
 import UIKit
 
-/// Image with its identifier for tagger API
-public struct ImageWithID {
-    public let image: UIImage
-    public let identifier: String // PHAsset localIdentifier or custom ID
-    
-    public init(image: UIImage, identifier: String) {
-        self.image = image
-        self.identifier = identifier
-    }
-}
+
 
 /// Tagger API response metadata
 public struct TaggerMeta: Codable {

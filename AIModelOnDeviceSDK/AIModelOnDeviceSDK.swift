@@ -110,6 +110,73 @@ public enum SDKState {
 }
 
 
+public struct SDKVendor {
+    public let persionalisationType : PersionalisationType
+    public let arrSDKCategory : [SDKCategory]
+    
+    public init(persionalisationType: PersionalisationType, arrSDKCategory: [SDKCategory]) {
+        self.persionalisationType = persionalisationType
+        self.arrSDKCategory = arrSDKCategory
+    }
+}
+
+public struct SDKCategory: Identifiable, Hashable {
+    public let id: Int
+    public let vendorId: Int
+    public let name: String
+    public let displayName: String
+    public let slug: String
+    public let categoryUrl: String
+    public let description: String?
+    public let imageUrl: String?
+    public let createdAt: String
+    public let productCount: Int?
+    
+    public init(
+        id: Int,
+        vendorId: Int,
+        name: String,
+        displayName: String,
+        slug: String,
+        categoryUrl: String,
+        description: String?,
+        imageUrl: String?,
+        createdAt: String,
+        productCount: Int?
+    ) {
+        self.id = id
+        self.vendorId = vendorId
+        self.name = name
+        self.displayName = displayName
+        self.slug = slug
+        self.categoryUrl = categoryUrl
+        self.description = description
+        self.imageUrl = imageUrl
+        self.createdAt = createdAt
+        self.productCount = productCount
+    }
+}
+
+public struct PersionalisationImageResult {
+    public let productUrl : String
+    public let resultImage: UIImage?
+    
+    public init(productUrl: String, resultImage: UIImage?) {
+        self.productUrl = productUrl
+        self.resultImage = resultImage
+    }
+}
+
+public struct ClusterImage {
+    public let identifier: String
+    public let image: UIImage
+    
+    public init(image: UIImage, identifier: String) {
+        self.image = image
+        self.identifier = identifier
+    }
+}
+
 public class AIModelOnDeviceSDK {
     
     public static let shared = AIModelOnDeviceSDK()

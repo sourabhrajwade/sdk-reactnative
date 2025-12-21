@@ -104,7 +104,4 @@ public enum PersonalizationError: LocalizedError {
     }
 }
 
-struct ClusterImage {
-    let identifier : String
-    let image : UIImage
-}
+

@@ -30,7 +30,8 @@ class InteriorVerificationHandler {
         
         // Step 1: Detect objects
         let detectionStart = CFAbsoluteTimeGetCurrent()
-        ObjectDetectionModelHandler.shared.detectObjects(image, using: modelType) { detections, latency in
+        ObjectDetectionModelHandler.shared.detectObjects(image, using: modelType) { [weak self] detections, latency in
+            guard let self = self else { return }
             guard let detections = detections else {
                 result.filterResults = [FilterResult(
                     name: "Object Detection",
@@ -377,7 +378,12 @@ class InteriorVerificationHandler {
                 dispatchGroup.enter()
                 
                 // Use autoreleasepool to release memory after each image
-                autoreleasepool {
+                autoreleasepool { [weak self] in
+                    guard let self = self else {
+                        semaphore.signal()
+                        dispatchGroup.leave()
+                        return
+                    }
                     self.verifyInteriorImage(clusterImage.image, using: modelType) { result in
                         defer {
                             semaphore.signal() // Signal when done

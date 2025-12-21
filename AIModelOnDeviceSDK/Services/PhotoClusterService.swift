@@ -64,7 +64,9 @@ final class PhotoClusterService {
         
         // Fetch assets from gallery
         let fetchOptions = PHFetchOptions()
+        fetchOptions.fetchLimit = 500
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        fetchOptions.fetchLimit = 500
         
         let assets = PHAsset.fetchAssets(with: .image, options: fetchOptions)
         allAssets = Array(_immutableCocoaArray: assets)

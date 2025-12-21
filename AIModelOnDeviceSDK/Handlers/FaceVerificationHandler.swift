@@ -186,7 +186,12 @@ class FaceVerificationHandler {
                 semaphore.wait()
                 dispatchGroup.enter()
 
-                autoreleasepool {
+                autoreleasepool { [weak self] in
+                    guard let self = self else {
+                        semaphore.signal()
+                        dispatchGroup.leave()
+                        return
+                    }
                     self.findBestFaceImage(image) { result in
                         defer {
                             semaphore.signal()
@@ -222,7 +227,8 @@ class FaceVerificationHandler {
     ) {
         let normalized = normalizeToUpOrientation(originalImage.image)
 
-        detectFace(in: normalized) { observations in
+        detectFace(in: normalized) { [weak self] observations in
+            guard let self = self else { return }
             // Keep only images with exactly ONE detected face.
             guard let observations, observations.count == 1, let observation = observations.first else {
                 completion(nil)

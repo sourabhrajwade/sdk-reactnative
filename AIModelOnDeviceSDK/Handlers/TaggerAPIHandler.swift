@@ -507,7 +507,8 @@ public class TaggerAPIHandler {
         
         let startTime = Date()
         
-        let task = session.dataTask(with: request) { data, response, error in
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
+            guard let _ = self else { return }
             let elapsedTime = Date().timeIntervalSince(startTime)
             print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
             
@@ -729,7 +730,8 @@ extension TaggerAPIHandler {
         
         let startTime = Date()
         
-        let task = session.dataTask(with: request) { data, response, error in
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
+            guard let _ = self else { return }
             let elapsedTime = Date().timeIntervalSince(startTime)
             print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
             

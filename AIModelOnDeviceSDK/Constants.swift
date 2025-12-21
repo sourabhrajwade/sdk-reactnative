@@ -6,14 +6,17 @@
 //
 
 import Foundation
+import UIKit
 
 public struct SDKOptions {
-    let persionalisationType : PersionalisationType
-    let photoSelectionType : PhotoSelectionType
+    public let persionalisationType : PersionalisationType
+    public let photoSelectionType : PhotoSelectionType
+    public let locationRadius : Double
     
-    public init(persionalisationType: PersionalisationType, photoSelectionType: PhotoSelectionType) {
+    public init(persionalisationType: PersionalisationType, photoSelectionType: PhotoSelectionType, locationRadius : Double = 500) {
         self.persionalisationType = persionalisationType
         self.photoSelectionType = photoSelectionType
+        self.locationRadius = locationRadius
     }
 }
 
@@ -55,6 +58,10 @@ public enum TagerAPIResultCategory : String {
     case bed_room       = "bedroom"
     case living_room    = "living_room"
     case dining_room    = "dining_room"
+    case male            = "male"
+    case female          = "female"
+    case kidMale        = "kid_male"
+    case kidFemale      = "kid_female"
     case unknown = "unknown"
     
     var arrProductCategory : [String] {
@@ -65,7 +72,7 @@ public enum TagerAPIResultCategory : String {
             return ["sofas", "sofa", "armchair", "armchairs", "living_room"]
         case .dining_room :
             return ["tables", "table", "dining", "dining_room"]
-        case .unknown :
+        case .unknown , .male , .female, .kidMale, .kidFemale :
             return []
         }
     }
@@ -95,4 +102,9 @@ public enum PersonalizationError: LocalizedError {
             return "No valid face found in images"
         }
     }
+}
+
+struct ClusterImage {
+    let identifier : String
+    let image : UIImage
 }

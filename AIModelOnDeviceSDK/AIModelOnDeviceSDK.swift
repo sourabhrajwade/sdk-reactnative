@@ -27,6 +27,7 @@
 import Foundation
 import UIKit
 import SwiftUI
+import Photos
 
 /// Main SDK entry point for AI Model On Device operations
 ///
@@ -68,155 +69,95 @@ import SwiftUI
 /// - `YOLOModel` - Available model types
 /// - `VerificationResult` - Verification result structure
 /// - `DetectionResult` - Object detection result structure
+///
+
+public struct SDKResult {
+    public let success : Bool
+    public let message : String
+    public let arrHomeGoodsAssest : [PersionalizeAssest]?
+    public let arrFashionAssest : [PersionalizeAssest]?
+}
+
+public struct PersionalizeAssest {
+    public let phAsset : PHAsset?
+    public let bestPickResult : BestPickResult
+}
+
+public enum SDKState {
+    case analyzing
+    case clusturing
+    case selectingBestPhoto
+    case tagging
+    case complete
+    case error
+    
+    public var message : String {
+        switch self {
+        case .analyzing:
+            "Analyzing photos..."
+        case .clusturing:
+            "Clusturing photos..."
+        case .selectingBestPhoto:
+            "Selecting best photo..."
+        case .tagging:
+            "Tagging photos..."
+        case .complete:
+            "Persionalization Complete"
+        case .error:
+            "Personalization error"
+        }
+    }
+}
+
+
 public class AIModelOnDeviceSDK {
     
-    /// Shared instance
     public static let shared = AIModelOnDeviceSDK()
     
-    var sdkOptions = SDKOptions(persionalisationType: .all, photoSelectionType: .auto)
+    public var sdkOptions : SDKOptions = SDKOptions(persionalisationType: .all, photoSelectionType: .auto)
     
-    private init() {}
-    
-    /// Clear model cache
-    ///
-    /// Removes all cached YOLO models from memory. Use this when:
-    /// - Memory is constrained
-    /// - Switching between many different models
-    /// - Before app termination (optional)
-    ///
-    /// ## Note
-    ///
-    /// Models will be reloaded on next use, which may cause a slight delay.
-    /// Caching improves performance for repeated model usage.
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// // Clear cache when done processing
-    /// sdk.clearCache()
-    ///
-    /// // Or before switching models
-    /// sdk.clearCache()
-    /// sdk.detectObjects(image, using: .yolov3) { ... }
-    /// ```
-    ///
-    /// ## See Also
-    ///
-    /// Models are automatically cached after first load. This method allows
-    /// manual cache management for memory optimization.
-    public func clearCache() {
-        ObjectDetectionModelHandler.shared.clearCache()
+    private init() {
+        
     }
-
-    
-    /// Generate room images from tagger results
-    ///
-    /// This method takes tagger API results and generates room images by combining
-    /// room photos with object images (bed, sofa, table) based on room categories.
-    ///
-    /// ## Parameters
-    ///
-    /// - `taggerResult: TaggerCompleteResult` - Result from tagger API (required)
-    /// - `objectImages: [String: UIImage]` - Dictionary mapping object labels to images (required)
-    ///   - Keys: "bed", "sofa", "table"
-    ///   - Values: UIImage objects for each object
-    /// - `completion: @escaping (Result<RoomGenerationCompleteResult, Error>) -> Void` - Completion handler (required)
-    ///
-    /// ## Returns
-    ///
-    /// `Void` - Results are provided via the completion handler
-    ///
-    /// ## RoomGenerationCompleteResult Properties
-    ///
-    /// - `results: [RoomGenerationResult]` - Array of generated room images
-    ///   - Each result contains: category, roomImage, objectImage, generatedImage, roomType
-    /// - `totalGenerated: Int` - Number of successfully generated images
-    ///
-    /// ## Mapping
-    ///
-    /// - `living_room` → uses "sofa" image
-    /// - `bedroom` → uses "bed" image
-    /// - `dining_room` → uses "table" image
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// let objectImages: [String: UIImage] = [
-    ///     "bed": bedImage,
-    ///     "sofa": sofaImage,
-    ///     "table": tableImage
-    /// ]
-    ///
-    /// sdk.generateRooms(from: taggerResult, objectImages: objectImages) { result in
-    ///     switch result {
-    ///     case .success(let roomResults):
-    ///         print("Generated \(roomResults.totalGenerated) room images")
-    ///         for roomResult in roomResults.results {
-    ///             // Use roomResult.generatedImage
-    ///         }
-    ///     case .failure(let error):
-    ///         print("Error: \(error.localizedDescription)")
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// ## Thread Safety
-    ///
-    /// This method is thread-safe. The completion handler is called on the main queue.
-    ///
-    /// - Parameters:
-    ///   - taggerResult: Tagger API result
-    ///   - objectImages: Dictionary of object images
-    ///   - completion: Completion handler with result
+    //Auto Service
+    public func runPersonalizationService(sdkOptions: SDKOptions,progress: @escaping (SDKState) -> Void, completion: @escaping (Result<SDKResult, Error>) -> Void) async{
+        self.sdkOptions = SDKOptions(persionalisationType: sdkOptions.persionalisationType, photoSelectionType: .auto)
+        do {
+            try await SDKPersonalizationService.shared.runPersonalizationPipeline(
+                progressUpdate: progress, complition: completion)
+        } catch {
+                completion(.failure(error))
+        }
+    }
+    //Manual Service
+    public func runPersonalizationServiceWith(sdkOptions: SDKOptions,arrPHAssesst:[PHAsset],progress: @escaping (SDKState) -> Void, completion: @escaping (Result<SDKResult, Error>) -> Void) async{
+        self.sdkOptions = sdkOptions
+        do {
+            try await SDKPersonalizationService.shared.runPersonalizationPipelineWith(
+                arrPHAssesst: arrPHAssesst, progressUpdate: progress, complition: completion)
+        } catch {
+                completion(.failure(error))
+        }
+    }
     public func generateFurniture(
+        thumbnailImg: UIImage,
         roomType: String,
         roomImageUrl: String? = nil,
         objectUrl: String,
         objectImage: UIImage? = nil,
         completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
     ) {
-        if let cachedImage = TempCacheHandler.shared.getThumbnail(forProductUrl: objectUrl) {
-            completion(.success(PersionalisationImageResult(productUrl: objectUrl, resultImage: cachedImage)))
-        }else {
-            TaggerAPIHandler.shared.generateRoom(roomType: roomType,objectUrl: objectUrl, completion: completion)
-        }
+        TaggerAPIHandler.shared.generateRoom(thumbnailImg: thumbnailImg, roomType: roomType,objectUrl: objectUrl, completion: completion)
     }
     
     public func generateFashion(
+        thumbnailImg: UIImage,
         garmentImageUrl: String,
         productType:String,
         categorySlug:String,
         completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
     ) {
-        if let cachedImage = TempCacheHandler.shared.getThumbnail(forProductUrl: garmentImageUrl) {
-            completion(.success(PersionalisationImageResult(productUrl: garmentImageUrl, resultImage: cachedImage)))
-        }else {
-            TaggerAPIHandler.shared.generateFashion( garmentImageUrl: garmentImageUrl, productType: productType,categorySlug:categorySlug, completion: completion)
-        }
-    }
-    
-    func persionalizeFashionPhoto(arrImage:[UIImage],category:String,complition:@escaping(String) -> Void) async throws {
-        do {
-            try await FashionPersonalizationService.shared.fetchBestFashionPhotoFromRemote(clusterImages: arrImage,progressUpdate: complition)
-        }catch let err {
-            throw err
-        }
-    }
-    
-    func persionalizeFurniturePhoto(arrImage:[UIImage],category:String,complition:@escaping(String) -> Void) async throws {
-        do {
-            try await SDKPersonalizationService.shared.fetchBestFurniturePhotoFromRemote(clusterImages: arrImage, progressUpdate: complition)
-        }catch let err {
-            throw err
-        }
-    }
-    
-    public func isPersionalizeRoomPhotoEmpty() -> Bool {
-        ImageStorageHandler.shared.isRoomImagesEmpty()
-    }
-    
-    public func isPersionalizeUserPhotoEmpty() -> Bool {
-        ImageStorageHandler.shared.isUserImagesEmpty()
+        TaggerAPIHandler.shared.generateFashion( thumbnailImg: thumbnailImg, garmentImageUrl: garmentImageUrl, productType: productType,categorySlug:categorySlug, completion: completion)
     }
 }
 

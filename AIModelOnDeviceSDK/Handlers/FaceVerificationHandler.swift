@@ -50,14 +50,16 @@ struct FaceObservationData {
     public let faceImage: UIImage
 
     public let observation: VNFaceObservation
-    public let imageIndex: Int
+    
     public let qualityScore: Double
 
     /// 512-D embedding for the face image
     public let embedding: [Float]
 
     /// "Men" or "Women" (if available)
-    public let gender: String?
+    public let category: TagerAPIResultCategory
+    
+    public let identifier : String
 }
 
 /// Handler for face verification and best image selection
@@ -145,16 +147,12 @@ class FaceVerificationHandler {
     ///   - category: Optional gender filter ("Men" or "Women")
     ///   - completion: Completion handler with FaceVerificationResult
     public func findBestFaceImage(
-        _ image: UIImage,
-        imageIndex: Int,
-        category: String? = nil,
+        _ image: ClusterImage,
         completion: @escaping (FaceObservationData?) -> Void
     ) {
 
         processImageForSingleFace(
             originalImage: image,
-            imageIndex: imageIndex,
-            category: category,
             completion: completion
         )
     }
@@ -166,8 +164,7 @@ class FaceVerificationHandler {
     ///   - maxResults: Maximum number of results to return (default: 15)
     ///   - completion: Completion handler with array of FaceVerificationResult
     public func filterResults(
-        _ images: [UIImage],
-        category: String? = nil,
+        _ images: [ClusterImage],
         completion: @escaping ([FaceObservationData]) -> Void
     ) {
         guard !images.isEmpty else {
@@ -176,9 +173,6 @@ class FaceVerificationHandler {
         }
 
         print("🔍 Filtering \(images.count) images for best faces...")
-        if let category = category {
-            print("   Category filter: \(category)")
-        }
 
         let maxConcurrency = 3 // keep memory reasonable
         let dispatchGroup = DispatchGroup()
@@ -188,12 +182,12 @@ class FaceVerificationHandler {
         var allResults: [FaceObservationData] = []
 
         DispatchQueue.global(qos: .userInitiated).async {
-            for (index, image) in images.enumerated() {
+            for (image) in images {
                 semaphore.wait()
                 dispatchGroup.enter()
 
                 autoreleasepool {
-                    self.findBestFaceImage(image, imageIndex: index, category: category) { result in
+                    self.findBestFaceImage(image) { result in
                         defer {
                             semaphore.signal()
                             dispatchGroup.leave()
@@ -211,11 +205,6 @@ class FaceVerificationHandler {
             dispatchGroup.notify(queue: .main) {
                 var results = allResults
 
-                // Optional gender filter (if gender is available)
-                if let category {
-                    results = results.filter { $0.gender == category }
-                }
-
                 // Sort by face quality (highest first) and cap to maxResults
                 results.sort { $0.qualityScore > $1.qualityScore }
                 print("✅ Returning \(results.count) best face images")
@@ -228,12 +217,10 @@ class FaceVerificationHandler {
     
     /// Process one image: detect faces, keep only single-face images, and generate 512-D embedding.
     private func processImageForSingleFace(
-        originalImage: UIImage,
-        imageIndex: Int,
-        category: String?,
+        originalImage: ClusterImage,
         completion: @escaping (FaceObservationData?) -> Void
     ) {
-        let normalized = normalizeToUpOrientation(originalImage)
+        let normalized = normalizeToUpOrientation(originalImage.image)
 
         detectFace(in: normalized) { observations in
             // Keep only images with exactly ONE detected face.
@@ -254,18 +241,18 @@ class FaceVerificationHandler {
                 return
             }
 
-            let gender = self.faceNetHandler.classifyGender(from: faceCrop)
+            let category = self.faceNetHandler.classifyGender(from: faceCrop)
 
             let qualityScore = self.calculateFaceQuality(observation: observation, image: normalized)
 
             let faceData = FaceObservationData(
-                image: originalImage,
+                image: originalImage.image,
                 faceImage: faceCrop,
                 observation: observation,
-                imageIndex: imageIndex,
                 qualityScore: qualityScore,
                 embedding: embedding,
-                gender: gender
+                category:category,
+                identifier: originalImage.identifier
             )
 
             completion(faceData)

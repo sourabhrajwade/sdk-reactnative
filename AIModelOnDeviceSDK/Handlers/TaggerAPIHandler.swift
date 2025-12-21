@@ -38,7 +38,7 @@ public class TaggerAPIHandler {
     /// - Parameters:
     ///   - imagesWithIDs: Array of images with their identifiers (PHAsset localIdentifier or custom ID)
     ///   - completion: Completion handler with TaggerCompleteResult or error
-    public func tagImages(_ imagesWithIDs: [ImageWithID], completion: @escaping (Result<TaggerCompleteResult, Error>) -> Void) {
+    func tagImages(_ imagesWithIDs: [ClusterImage], completion: @escaping (Result<TaggerCompleteResult, Error>) -> Void) {
         guard !imagesWithIDs.isEmpty else {
             completion(.failure(TaggerAPIError.emptyImages))
             return
@@ -107,7 +107,7 @@ public class TaggerAPIHandler {
     private func createAndSendRequest(
         body: Data,
         boundary: String,
-        imagesToProcess: [ImageWithID],
+        imagesToProcess: [ClusterImage],
         completion: @escaping (Result<TaggerCompleteResult, Error>) -> Void
     ) {
         // Make body mutable
@@ -155,18 +155,6 @@ public class TaggerAPIHandler {
         request.setValue("\(mutableBody.count)", forHTTPHeaderField: "Content-Length")
         request.httpBody = mutableBody
         request.timeoutInterval = 300 // 5 minutes
-        
-        // Create mapping of API ID (1-based index) to image identifier
-        let idToIdentifierMap: [Int: String] = Dictionary(uniqueKeysWithValues:
-                                                            imagesToProcess.enumerated().map { (index, imageWithID) in
-            (index + 1, imageWithID.identifier)
-        }
-        )
-        
-        // Create mapping of identifier to image
-        let identifierToImageMap: [String: UIImage] = Dictionary(uniqueKeysWithValues:
-                                                                    imagesToProcess.map { ($0.identifier, $0.image) }
-        )
         
         // Perform request on background queue to avoid blocking
         print("📡 Starting Tagger API request...")
@@ -240,77 +228,71 @@ public class TaggerAPIHandler {
                 // Map results back to images using identifiers
                 var mappedResults: [TaggerResult] = []
                 for result in taggerResponse.data {
-                    if let identifier = idToIdentifierMap[result.id] {
-                        let image = identifierToImageMap[identifier]
+                    let clusterImg = imagesToProcess[result.id-1]
                         let taggerResult = TaggerResult(
-                            image: image,
+                            image: clusterImg.image,
                             imageUrl: result.imageUrl,
-                            identifier: identifier,
+                            identifier: clusterImg.identifier,
                             taggerResult: result
                         )
                         mappedResults.append(taggerResult)
-                    }
+                    
                 }
                 
                 // Map best picks to images
                 var mappedBestPicks: [BestPickResult] = []
                 
-                if let livingRoom = taggerResponse.bestPicks.livingRoom,
-                   let identifier = idToIdentifierMap[livingRoom.id] {
-                    let image = identifierToImageMap[identifier]
+                if let livingRoom = taggerResponse.bestPicks.livingRoom {
+                    let clusterImg = imagesToProcess[livingRoom.id-1]
                     mappedBestPicks.append(BestPickResult(
                         category: "living_room",
-                        image: image,
+                        image: clusterImg.image,
                         imageUrl: livingRoom.imageUrl,
-                        identifier: identifier,
+                        identifier: clusterImg.identifier,
                         bestPick: livingRoom
                     ))
                 }
                 
-                if let dining = taggerResponse.bestPicks.dining,
-                   let identifier = idToIdentifierMap[dining.id] {
-                    let image = identifierToImageMap[identifier]
+                if let dining = taggerResponse.bestPicks.dining {
+                    let clusterImg = imagesToProcess[dining.id-1]
                     mappedBestPicks.append(BestPickResult(
                         category: "dining_room", // Map "dining" to "dining_room" for consistency
-                        image: image,
+                        image: clusterImg.image,
                         imageUrl: dining.imageUrl,
-                        identifier: identifier,
+                        identifier: clusterImg.identifier,
                         bestPick: dining
                     ))
                 }
                 
-                if let bathroom = taggerResponse.bestPicks.bathroom,
-                   let identifier = idToIdentifierMap[bathroom.id] {
-                    let image = identifierToImageMap[identifier]
+                if let bathroom = taggerResponse.bestPicks.bathroom {
+                    let clusterImg = imagesToProcess[bathroom.id-1]
                     mappedBestPicks.append(BestPickResult(
                         category: "bathroom",
-                        image: image,
+                        image: clusterImg.image,
                         imageUrl: bathroom.imageUrl,
-                        identifier: identifier,
+                        identifier: clusterImg.identifier,
                         bestPick: bathroom
                     ))
                 }
                 
-                if let kitchen = taggerResponse.bestPicks.kitchen,
-                   let identifier = idToIdentifierMap[kitchen.id] {
-                    let image = identifierToImageMap[identifier]
+                if let kitchen = taggerResponse.bestPicks.kitchen {
+                    let clusterImg = imagesToProcess[kitchen.id-1]
                     mappedBestPicks.append(BestPickResult(
                         category: "kitchen",
-                        image: image,
+                        image: clusterImg.image,
                         imageUrl: kitchen.imageUrl,
-                        identifier: identifier,
+                        identifier: clusterImg.identifier,
                         bestPick: kitchen
                     ))
                 }
                 
-                if let bedroom = taggerResponse.bestPicks.bedroom,
-                   let identifier = idToIdentifierMap[bedroom.id] {
-                    let image = identifierToImageMap[identifier]
+                if let bedroom = taggerResponse.bestPicks.bedroom {
+                    let clusterImg = imagesToProcess[bedroom.id-1]
                     mappedBestPicks.append(BestPickResult(
                         category: "bedroom",
-                        image: image,
+                        image: clusterImg.image,
                         imageUrl: bedroom.imageUrl,
-                        identifier: identifier,
+                        identifier: clusterImg.identifier,
                         bestPick: bedroom
                     ))
                 }
@@ -364,6 +346,7 @@ public class TaggerAPIHandler {
     
     /// Generate a single room image using room_image (multipart) and object_url
     public func generateRoom(
+        thumbnailImg:UIImage,
         roomType: String,
         roomImageUrl: String? = nil,
         objectUrl: String? = nil,
@@ -382,16 +365,6 @@ public class TaggerAPIHandler {
         }
         else {
             tagType = "living_room"
-        }
-            
-        // Validate required parameters
-        guard let roomImage = ImageStorageHandler.shared.fetchRoomImage(withName: tagType) else {
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
-        }
-        guard roomImage != nil else {
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
         }
         
         // object_url is mandatory, objectImage is optional (legacy support)
@@ -414,7 +387,7 @@ public class TaggerAPIHandler {
             body.append("\r\n".data(using: .utf8)!)
             
             // Resize room image to reduce upload size and memory usage
-            let resizedRoomImage = resizeImage(roomImage, maxDimension: 1024)
+            let resizedRoomImage = resizeImage(thumbnailImg, maxDimension: 1024)
             
             // Add room_image (mandatory - multipart form data)
             guard let roomImageData = resizedRoomImage.jpegData(compressionQuality: 0.8) else {
@@ -480,7 +453,6 @@ public class TaggerAPIHandler {
                 case .success(let img):
                     if let img {
                         let persionalisationImageResult = PersionalisationImageResult(productUrl: objectUrl ?? "", resultImage: img)
-                        TempCacheHandler.shared.storeThumbnail(img, forProductUrl: objectUrl ?? "")
                         completion(.success(persionalisationImageResult))
                     }else {
                         print("❌ Fashion generation failed:")
@@ -658,24 +630,12 @@ public enum TaggerAPIError: LocalizedError {
 extension TaggerAPIHandler {
     
     public func generateFashion(
+        thumbnailImg:UIImage,
         garmentImageUrl: String,
         productType:String,
         categorySlug:String,
         completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
     ) {
-        // Validate required parameters
-        var imageName = ""
-        if categorySlug == "mens_shirts" {
-            imageName = "men_face"
-        }else if categorySlug == "womens_wear" {
-            imageName = "women_face"
-        }else {
-            imageName = "women_face"
-        }
-        guard let UserImage = ImageStorageHandler.shared.fetchUserImage(withName: imageName) else {
-            completion(.failure(TaggerAPIError.emptyImages))
-            return
-        }
         
         // Use autoreleasepool to manage memory during image processing
         autoreleasepool {
@@ -691,7 +651,7 @@ extension TaggerAPIHandler {
             body.append("\r\n".data(using: .utf8)!)
             
             // Resize room image to reduce upload size and memory usage
-            let resizedRoomImage = UserImage//resizeImage(UserImage, maxDimension: 1024)
+            let resizedRoomImage = thumbnailImg//resizeImage(UserImage, maxDimension: 1024)
             
             // Add room_image (mandatory - multipart form data)
             guard let roomImageData = resizedRoomImage.jpegData(compressionQuality: 0.8) else {
@@ -717,7 +677,6 @@ extension TaggerAPIHandler {
                     if let strBase64 {
                         let img = UIImage.fromBase64DataURL(strBase64)
                         let persionalisationImageResult = PersionalisationImageResult(productUrl: garmentImageUrl, resultImage: img)
-                        TempCacheHandler.shared.storeThumbnail(img, forProductUrl: garmentImageUrl)
                         completion(.success(persionalisationImageResult))
                     }else {
                         print("❌ Fashion generation failed:")

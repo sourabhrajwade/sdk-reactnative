@@ -9,20 +9,40 @@ import Foundation
 import UIKit
 import Photos
 
+
+
 final class SDKPersonalizationService {
     static let shared = SDKPersonalizationService()
     
-    private let sdk = AIModelOnDeviceSDK.shared
-    private let clusterService = PhotoClusterService.shared
+    let clusterService = PhotoClusterService()
     
     private init() {
         // Load productImageMap from persistent storage
     }
     
-    
     /// Runs the complete personalization pipeline
-    func runPersonalizationPipeline(
-        progressUpdate: @escaping (String) -> Void
+    func runPersonalizationPipeline(progressUpdate: @escaping (SDKState) -> Void,
+                                    complition : @escaping (Result<SDKResult, Error>) -> Void
+                                ) async throws {
+        let (photoClusters) = try await clusterService.fetchAllPhotos()
+        return try await runPhotoCluster(photoClusters: photoClusters, progressUpdate: progressUpdate, complition: complition)
+    }
+    
+    func runPersonalizationPipelineWith(
+        arrPHAssesst: [PHAsset],
+        progressUpdate: @escaping (SDKState) -> Void,
+        complition : @escaping (Result<SDKResult, Error>) -> Void
+    ) async throws {
+        progressUpdate(.clusturing)
+    
+        let (photoClusters) = try await clusterService.fetchPhotosWithLocation(arrPHAssets: arrPHAssesst)
+        return try await runPhotoCluster(photoClusters: photoClusters, progressUpdate: progressUpdate, complition: complition)
+    }
+    
+    func runPhotoCluster(
+        photoClusters:[PhotoCluster],
+        progressUpdate: @escaping (SDKState) -> Void,
+        complition : @escaping (Result<SDKResult, Error>) -> Void
     ) async throws {
         // Always clear cache at the start of personalization
         print("🗑️ Clearing old personalized images from cache...")
@@ -30,20 +50,11 @@ final class SDKPersonalizationService {
         print("✅ Cache cleared - starting personalization pipeline")
         //LogWriter.shared.write("✅ Cache cleared - starting personalization pipeline")
         
-        progressUpdate("Fetching photos from gallery...")
-        
         // Step 1: Fetch photos with location
-        let (photos, photoClusters) = try await clusterService.fetchPhotosWithLocationCached(
-            limit: 1000,
-            radius: 500.0,
-            forceRefresh: true
-        )
         
-        guard !photos.isEmpty else {
+        guard !photoClusters.isEmpty else {
             throw PersonalizationError.noPhotosFound
         }
-        
-        progressUpdate("Selecting best photos...")
         
         // Step 2: Select largest cluster
         guard let largestCluster = clusterService.getLargestCluster(from: photoClusters) else {
@@ -51,27 +62,23 @@ final class SDKPersonalizationService {
         }
         
         // Step 3: Load images from cluster
-        var clusterImages: [UIImage] = []
-        var clusterIdentifiers: [String] = []
+        var clusterImages: [ClusterImage] = []
         let batchSize = 10
         
         for batchStart in stride(from: 0, to: largestCluster.photos.count, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, largestCluster.photos.count)
             let batch = Array(largestCluster.photos[batchStart..<batchEnd])
             
-            var batchImages: [UIImage] = []
-            var batchIdentifiers: [String] = []
+            var batchImages: [ClusterImage] = []
             
             for photoLocation in batch {
-                if let image = await clusterService.loadImage(from: photoLocation.asset) {
-                    batchImages.append(image)
-                    batchIdentifiers.append(photoLocation.asset.localIdentifier)
+                if let image = await clusterService.loadImageOfAsset(from: photoLocation.asset) {
+                    batchImages.append(ClusterImage(identifier: photoLocation.asset.localIdentifier, image: image))
                 }
             }
             
             autoreleasepool {
                 clusterImages.append(contentsOf: batchImages)
-                clusterIdentifiers.append(contentsOf: batchIdentifiers)
             }
         }
         
@@ -79,18 +86,73 @@ final class SDKPersonalizationService {
             throw PersonalizationError.failedToLoadImages
         }
         
-        progressUpdate("Analyzing images...")
-        
-        do {
-            try await fetchBestFurniturePhotoFromRemote(clusterImages: clusterImages) { msg in
-                progressUpdate(msg)
+        progressUpdate(.analyzing)
+        switch AIModelOnDeviceSDK.shared.sdkOptions.persionalisationType {
+        case .all :
+            do {
+                var arrHomeGoodsAssest : [PersionalizeAssest] = []
+                var arrFashionAssest : [PersionalizeAssest] = []
+                try await fetchBestFurniturePhotoFromRemote(clusterImages: clusterImages) { state in
+                    progressUpdate(state)
+                } complition: { result in
+                    let harrAsset = result.compactMap { bestPick in
+                        return PersionalizeAssest(phAsset: largestCluster.photos.first(where: {$0.asset.localIdentifier == bestPick.identifier})?.asset, bestPickResult: bestPick)
+                    }
+                    arrHomeGoodsAssest.append(contentsOf: harrAsset)
+                }
+                try await fetchBestFashionPhotoFromRemote(clusterImages: clusterImages) { state in
+                    progressUpdate(state)
+                } complition: { result in
+                    let farrAsset = result.compactMap { bestPick in
+                        return PersionalizeAssest(phAsset: largestCluster.photos.first(where: {$0.asset.localIdentifier == bestPick.identifier})?.asset, bestPickResult: bestPick)
+                    }
+                    arrFashionAssest.append(contentsOf: farrAsset)
+                }
+                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: arrHomeGoodsAssest , arrFashionAssest: arrFashionAssest)
+                complition(.success(sdkResult))
+            }catch let err {
+                throw err
             }
-        }catch let err {
-            throw err
+            
+        case .homegoods :
+            do {
+                var arrAsset : [PersionalizeAssest] = []
+                try await fetchBestFurniturePhotoFromRemote(clusterImages: clusterImages) { state in
+                    progressUpdate(state)
+                } complition: { result in
+                    let harrAsset = result.compactMap { bestPick in
+                        return PersionalizeAssest(phAsset: largestCluster.photos.first(where: {$0.asset.localIdentifier == bestPick.identifier})?.asset, bestPickResult: bestPick)
+                    }
+                    arrAsset.append(contentsOf: harrAsset)
+                }
+                
+                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: arrAsset , arrFashionAssest: nil)
+                complition(.success(sdkResult))
+            }catch let err {
+                throw err
+            }
+        case .fashion :
+            do {
+                var arrAsset : [PersionalizeAssest] = []
+                try await fetchBestFashionPhotoFromRemote(clusterImages: clusterImages) { state in
+                    progressUpdate(state)
+                } complition: { result in
+                    let farrAsset = result.compactMap { bestPick in
+                        return PersionalizeAssest(phAsset: largestCluster.photos.first(where: {$0.asset.localIdentifier == bestPick.identifier})?.asset, bestPickResult: bestPick)
+                    }
+                    arrAsset.append(contentsOf: farrAsset)
+                }
+                let sdkResult = SDKResult(success: true, message: "", arrHomeGoodsAssest: nil , arrFashionAssest: arrAsset)
+                complition(.success(sdkResult))
+            }catch let err {
+                throw err
+            }
+        case .unKnown:
+            break
         }
     }
     
-    func fetchBestFurniturePhotoFromRemote(clusterImages:[UIImage] , progressUpdate: @escaping (String) -> Void) async throws {
+    func fetchBestFurniturePhotoFromRemote(clusterImages:[ClusterImage] , progressUpdate: @escaping (SDKState) -> Void,complition:@escaping ([BestPickResult]) -> Void) async throws {
         // Step 4: Filter top 15 images by score
         let topResults = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ImageVerificationResult], Error>) in
             InteriorVerificationHandler.shared.filterResults(clusterImages, using: .yolov3) { results in
@@ -102,20 +164,12 @@ final class SDKPersonalizationService {
             throw PersonalizationError.noValidImages
         }
         
-        progressUpdate("Tagging images...")
+        progressUpdate(.tagging)
         
-        // Step 5: Tag images with API
-        var imagesWithIDs: [ImageWithID] = []
-        for result in topResults {
-            let identifier = "image_\(result.index)"
-            imagesWithIDs.append(ImageWithID(
-                image: result.image,
-                identifier: identifier
-            ))
-        }
+        let topClusterImgs = topResults.compactMap({$0.image})
         
         let taggerResult = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<TaggerCompleteResult, Error>) in
-            TaggerAPIHandler.shared.tagImages(imagesWithIDs) { result in
+            TaggerAPIHandler.shared.tagImages(topClusterImgs) { result in
                 switch result {
                 case .success(let taggerResult):
                     continuation.resume(returning: taggerResult)
@@ -125,13 +179,64 @@ final class SDKPersonalizationService {
             }
         }
         
-        progressUpdate("Generating personalized room images...")
-        
-        for tagresult in taggerResult.bestPicks {
-            if let image = imagesWithIDs.filter({$0.identifier == tagresult.identifier}).first?.image {
-                ImageStorageHandler.shared.saveBestHomeRoomImage(image, withName: tagresult.category.rawValue)
+        progressUpdate(.complete)
+        complition(taggerResult.bestPicks)
+    }
+    
+    func fetchBestFashionPhotoFromRemote(clusterImages:[ClusterImage] , progressUpdate: @escaping (SDKState) -> Void,complition:@escaping ([BestPickResult]) -> Void) async throws {
+        // Step 4: Find best face images using FaceVerificationHandler (similar to PersonalizationService Step 4)
+        let faceResults = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[FaceObservationData], Error>) in
+            FaceVerificationHandler.shared.filterResults(clusterImages) { results in
+                continuation.resume(returning: results)
             }
         }
+
+        guard !faceResults.isEmpty else {
+            throw PersonalizationError.noValidImages
+        }
+
+        // Pick the face that appears most frequently, then take the highest-quality image for that face.
+        // (This uses 512-D embeddings generated by the SDK.)
+        var arrBestResult : [BestPickResult] = []
+        let menFaceResults = faceResults.compactMap { observationData in
+            return (observationData.category == .male) ? observationData : nil
+        }
+        if menFaceResults.count > 0 {
+            let picked = FaceVerificationHandler.shared.bestImageForMostFrequentFace(from: menFaceResults, similarityThreshold: 0.80)
+            guard let bestFace = picked?.best else {
+                throw PersonalizationError.noValidFaceFound
+            }
+
+            
+            progressUpdate(.tagging)
+            
+            guard let bestImg = picked?.best else {
+                print("⚠️ Failed to best face image")
+                // //LogWriter.shared.write("⚠️ Failed to best face image")
+                return
+            }
+            arrBestResult.append(BestPickResult(category: bestImg.category.rawValue, image: bestImg.image, imageUrl: nil, identifier: bestImg.identifier, bestPick: BestPick(filename: "\(bestImg.category.rawValue).jpg", score: bestImg.qualityScore, id: 1, imageUrl: nil)))
+        }
+        
+        let womenFaceResults = faceResults.compactMap { observationData in
+            return (observationData.category == .female) ? observationData : nil
+        }
+        if womenFaceResults.count > 0 {
+            let picked = FaceVerificationHandler.shared.bestImageForMostFrequentFace(from: womenFaceResults, similarityThreshold: 0.80)
+            guard let bestFace = picked?.best else {
+                throw PersonalizationError.noValidFaceFound
+            }
+            progressUpdate(.tagging)
+            
+            guard let bestImg = picked?.best else {
+                print("⚠️ Failed to best face image")
+                //LogWriter.shared.write("⚠️ Failed to best face image")
+                return
+            }
+            arrBestResult.append(BestPickResult(category: bestImg.category.rawValue, image: bestImg.image, imageUrl: nil, identifier: bestImg.identifier, bestPick: BestPick(filename: "\(bestImg.category.rawValue).jpg", score: bestImg.qualityScore, id: 1, imageUrl: nil)))
+        }
+        progressUpdate(.complete)
+        complition(arrBestResult)
     }
 }
 

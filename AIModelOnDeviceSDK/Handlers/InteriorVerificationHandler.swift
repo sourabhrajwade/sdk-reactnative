@@ -23,7 +23,7 @@ class InteriorVerificationHandler {
     ///   - image: The image to verify
     ///   - modelType: The YOLO model to use for object detection
     ///   - completion: Completion handler with VerificationResult
-    public func verifyInteriorImage(_ image: UIImage, using modelType: YOLOModel, completion: @escaping (VerificationResult) -> Void) {
+    func verifyInteriorImage(_ image: UIImage, using modelType: YOLOModel, completion: @escaping (VerificationResult) -> Void) {
         let totalStartTime = CFAbsoluteTimeGetCurrent()
         var result = VerificationResult()
         var filterResults: [FilterResult] = []
@@ -354,7 +354,7 @@ class InteriorVerificationHandler {
     ///   - images: Array of images to verify and filter
     ///   - modelType: The YOLO model to use for object detection
     ///   - completion: Completion handler with top 15 ImageVerificationResult sorted by score (highest first)
-    public func filterResults(_ images: [UIImage], using modelType: YOLOModel, completion: @escaping ([ImageVerificationResult]) -> Void) {
+    func filterResults(_ images: [ClusterImage], using modelType: YOLOModel, completion: @escaping ([ImageVerificationResult]) -> Void) {
         guard !images.isEmpty else {
             completion([])
             return
@@ -370,7 +370,7 @@ class InteriorVerificationHandler {
         DispatchQueue.global(qos: .userInitiated).async {
             let semaphore = DispatchSemaphore(value: batchSize) // Limit concurrent operations
             
-            for (index, image) in images.enumerated() {
+            for (index, clusterImage) in images.enumerated() {
                 // Wait if we've reached the batch limit
                 semaphore.wait()
                 
@@ -378,7 +378,7 @@ class InteriorVerificationHandler {
                 
                 // Use autoreleasepool to release memory after each image
                 autoreleasepool {
-                    self.verifyInteriorImage(image, using: modelType) { result in
+                    self.verifyInteriorImage(clusterImage.image, using: modelType) { result in
                         defer {
                             semaphore.signal() // Signal when done
                             dispatchGroup.leave()
@@ -387,11 +387,10 @@ class InteriorVerificationHandler {
                         // Only include valid results with scoreBreakdown
                         if result.isValid, let scoreBreakdown = result.scoreBreakdown {
                             let imageResult = ImageVerificationResult(
-                                image: image,
+                                image: clusterImage,
                                 result: result,
                                 index: index
                             )
-                            
                             resultQueue.async(flags: .barrier) {
                                 allResults.append(imageResult)
                             }

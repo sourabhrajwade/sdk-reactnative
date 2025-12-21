@@ -74,11 +74,11 @@ class FaceNetModelHandler {
         return (similarity + 1.0) / 2.0
     }
     
-    private func classifyGenderWithGenderNet(from image: UIImage) -> String? {
-        guard let cgImage = image.cgImage else { return nil }
+    private func classifyGenderWithGenderNet(from image: UIImage) -> TagerAPIResultCategory {
+        guard let cgImage = image.cgImage else { return .unknown }
 
         guard let model = try? VNCoreMLModel(for: GenderClassifier().model) else {
-            return nil
+            return .unknown
         }
 
         let request = VNCoreMLRequest(model: model)
@@ -89,20 +89,20 @@ class FaceNetModelHandler {
             try handler.perform([request])
         } catch {
             print("Failed to perform classification: \(error.localizedDescription)")
-            return nil
+            return .unknown
         }
 
         if let results = request.results as? [VNClassificationObservation] {
             let sortedResults = results.sorted { $0.confidence > $1.confidence }
             if let topResult = sortedResults.first, topResult.confidence > 0.7 {
                 if topResult.identifier.lowercased() == "male" {
-                    return "Men"
+                    return TagerAPIResultCategory.male
                 } else if topResult.identifier.lowercased() == "female" {
-                    return "Women"
+                    return TagerAPIResultCategory.female
                 }
             }
         }
-        return nil
+        return TagerAPIResultCategory.unknown
     }
 
     /// Classify gender from face image.
@@ -114,7 +114,7 @@ class FaceNetModelHandler {
     ///
     /// - Parameter faceImage: Cropped face image to classify.
     /// - Returns: "Men" or "Women", or nil if classification fails / is uncertain.
-    public func classifyGender(from faceImage: UIImage) -> String? {
+    public func classifyGender(from faceImage: UIImage) -> TagerAPIResultCategory {
         return classifyGenderWithGenderNet(from: faceImage)
     }
     

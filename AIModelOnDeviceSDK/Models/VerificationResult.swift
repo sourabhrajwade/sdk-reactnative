@@ -65,13 +65,13 @@ public struct ScoreBreakdown: Codable {
 }
 
 /// Image verification result wrapper containing both image and verification result
-public struct ImageVerificationResult: Identifiable {
-    public let id = UUID()
-    public let image: UIImage
-    public let result: VerificationResult
-    public let index: Int
+struct ImageVerificationResult: Identifiable {
+    let id = UUID()
+    let image: ClusterImage
+    let result: VerificationResult
+    let index: Int
     
-    public init(image: UIImage, result: VerificationResult, index: Int) {
+    init(image: ClusterImage, result: VerificationResult, index: Int) {
         self.image = image
         self.result = result
         self.index = index

@@ -11,6 +11,22 @@ import Vision
 import CoreML
 import CoreImage
 
+public enum RoomType: String {
+    case bedroom = "bedroom"
+    case livingRoom = "living_room"
+    case diningRoom = "dining_room"
+    case emptyRoom
+    case unknown
+}
+
+public enum PersonType: String {
+    case none
+    case single
+    case multiple
+    case background
+}
+
+
 /// Handler for interior image verification
 class InteriorVerificationHandler {
     
@@ -18,352 +34,152 @@ class InteriorVerificationHandler {
     
     private init() {}
     
-    /// Verify if an image is a valid interior image
-    /// - Parameters:
-    ///   - image: The image to verify
-    ///   - modelType: The YOLO model to use for object detection
-    ///   - completion: Completion handler with VerificationResult
-    func verifyInteriorImage(_ image: UIImage, using modelType: YOLOModel, completion: @escaping (VerificationResult) -> Void) {
-        let totalStartTime = CFAbsoluteTimeGetCurrent()
-        var result = VerificationResult()
-        var filterResults: [FilterResult] = []
-        
-        // Step 1: Detect objects
-        let detectionStart = CFAbsoluteTimeGetCurrent()
-        ObjectDetectionModelHandler.shared.detectObjects(image, using: modelType) { [weak self] detections, latency in
-            guard let self = self else { return }
-            guard let detections = detections else {
-                result.filterResults = [FilterResult(
-                    name: "Object Detection",
-                    passed: false,
-                    message: "Failed to detect objects",
-                    value: "Error",
-                    latency: 0.0
-                )]
-                completion(result)
-                return
-            }
-            
-            let detectionLatency = (CFAbsoluteTimeGetCurrent() - detectionStart) * 1000
-            result.detections = detections // Keep original detections for display
-            
-            // Filter out excluded categories for verification calculations
-            let relevantDetections = detections.filter { detection in
-                !excludedCategories.contains(detection.label.lowercased())
-            }
-            
-            // Log all detected objects with their names and confidence scores
-            print("🔍 Detected \(detections.count) object(s):")
-            for detection in detections {
-                print("   - \(detection.label): \(String(format: "%.1f%%", detection.confidence * 100)) confidence")
-            }
-            
-            // Log excluded items
-            let excludedItems = detections.filter { excludedCategories.contains($0.label.lowercased()) }
-            if !excludedItems.isEmpty {
-                print("🚫 Excluded \(excludedItems.count) item(s) from verification calculations:")
-                for item in excludedItems {
-                    print("   - \(item.label): \(String(format: "%.1f%%", item.confidence * 100)) confidence")
+    private let roomObjectWeights: [RoomType: [String: Int]] = [
+        .bedroom: [
+            "bed": 6, "wardrobe": 4, "lamp": 2, "nightstand": 3
+        ],
+        .livingRoom: [
+            "sofa": 6, "tv": 5, "coffee table": 4, "rug": 2
+        ],
+        .diningRoom: [
+            "dining table": 6, "table": 4, "chair": 2
+        ]
+    ]
+
+    private func classifyRoom(_ detections: [DetectionResult]) -> RoomType {
+        guard !detections.isEmpty else { return .emptyRoom }
+
+        var scores: [RoomType: Int] = [:]
+
+        for d in detections {
+            let label = d.label.lowercased()
+            for (room, weights) in roomObjectWeights {
+                if let w = weights[label] {
+                    scores[room, default: 0] += w
                 }
             }
-            
-            // Step 2: Confidence Score Filter (using relevant detections only)
-            let confidenceStart = CFAbsoluteTimeGetCurrent()
-            let highConfidenceDetections = relevantDetections.filter { $0.confidence > 0.6 }
-            let hasHighConfidenceObject = !highConfidenceDetections.isEmpty
-            let confidenceLatency = (CFAbsoluteTimeGetCurrent() - confidenceStart) * 1000
-            
-            if !hasHighConfidenceObject {
-                print("❌ No relevant objects with confidence > 60% found")
-                // Format relevant detected object labels for display (excluding filtered items)
-                let detectedLabels = relevantDetections.map { "\($0.label) (\(String(format: "%.0f%%", $0.confidence * 100)))" }
-                let labelsString = detectedLabels.isEmpty ? "None" : detectedLabels.joined(separator: ", ")
-                filterResults.append(FilterResult(
-                    name: "Object Confidence",
-                    passed: false,
-                    message: "No objects detected with confidence > 60%",
-                    value: labelsString,
-                    latency: confidenceLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
+        }
+
+        guard let best = scores.max(by: { $0.value < $1.value }),
+              best.value > 0 else {
+            return .unknown
+        }
+        return best.key
+    }
+
+    private func classifyPerson(_ persons: [DetectionResult]) -> (PersonType,confidenceScore:Float) {
+        guard !persons.isEmpty else { return (.none,0.0) }
+
+        let coverage = persons.reduce(0.0) { $0 + Double($1.areaPercentage) }
+
+        if persons.count == 1 {
+            return coverage > 0.35 ? (.single,persons.first?.confidence ?? 0.0) : (.none,0.0)
+        }
+
+        return (.multiple,persons.first?.confidence ?? 0.0)
+    }
+    
+    
+    
+    func verifyImage(
+        _ image: UIImage,
+        using modelType: YOLOModel,
+        completion: @escaping (PhotoVerificationResult) -> Void
+    ) {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        var result = PhotoVerificationResult()
+
+        ObjectDetectionModelHandler.shared.detectObjects(image, using: modelType) { [weak self] detections, _ in
+            guard let self = self, let detections = detections else {
+                result.isValid = false
                 completion(result)
                 return
             }
-            
-            // Log high confidence objects
-            print("✅ Found \(highConfidenceDetections.count) relevant object(s) with confidence > 60%:")
-            for detection in highConfidenceDetections {
-                print("   - \(detection.label): \(String(format: "%.1f%%", detection.confidence * 100)) confidence")
+
+            result.arrDetectionResult = detections
+
+            let relevant = detections.filter {
+                !excludedCategories.contains($0.label.lowercased())
             }
-            
-            // Format high confidence object labels for display
-            let highConfidenceLabels = highConfidenceDetections.map { "\($0.label) (\(String(format: "%.0f%%", $0.confidence * 100)))" }
-            let labelsString = highConfidenceLabels.joined(separator: ", ")
-            filterResults.append(FilterResult(
-                name: "Object Confidence",
-                passed: true,
-                message: "High confidence objects detected",
-                value: labelsString,
-                latency: confidenceLatency
-            ))
-            
-            // Step 3: Check for person or furniture (using relevant detections only)
-            let checkStart = CFAbsoluteTimeGetCurrent()
-            let personDetections = relevantDetections.filter { $0.label.lowercased() == "person" }
-            let furnitureDetections = relevantDetections.filter { furnitureCategories.contains($0.label.lowercased()) }
-            let checkLatency = (CFAbsoluteTimeGetCurrent() - checkStart) * 1000
-            
-            if personDetections.isEmpty && furnitureDetections.isEmpty {
-                filterResults.append(FilterResult(
-                    name: "Room Detection",
-                    passed: false,
-                    message: "Not a room image",
-                    value: "No person or furniture detected",
-                    latency: checkLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
+
+            let persons = relevant.filter { $0.label.lowercased() == "person" }
+            let furniture = relevant.filter {
+                furnitureCategories.contains($0.label.lowercased())
+            }
+            // ----- EMPTY ROOM -----
+            if furniture.isEmpty && persons.isEmpty {
+                result.isValid = false
+                result.validCategory = .unknown
                 completion(result)
                 return
             }
-            
-            filterResults.append(FilterResult(
-                name: "Room Detection",
-                passed: true,
-                message: "Room image detected",
-                value: "\(personDetections.count) person(s), \(furnitureDetections.count) furniture",
-                latency: checkLatency
-            ))
-            
-            // Step 4: Person Coverage Filter
-            let personCoverageStart = CFAbsoluteTimeGetCurrent()
-            let totalPersonCoverage = personDetections.reduce(0.0) { $0 + Double($1.areaPercentage) }
-            let personCoverageLatency = (CFAbsoluteTimeGetCurrent() - personCoverageStart) * 1000
-            
-            if totalPersonCoverage > 0.20 {
-                filterResults.append(FilterResult(
-                    name: "Person Coverage",
-                    passed: false,
-                    message: "Too much person coverage (> 20%)",
-                    value: String(format: "%.1f%%", totalPersonCoverage * 100),
-                    latency: personCoverageLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
+            // 🔥 CLASSIFICATIONS
+            let roomType = self.classifyRoom(furniture)
+            let personType = self.classifyPerson(persons)
+
+            // ----- PERSON-FIRST IMAGE -----
+            if (personType.0) == .single {
+                Task {
+                    let category = await FaceNetModelHandler.shared.classifyGender(from: image)
+                    result.isValid = true
+                    result.validCategory = category
+                    result.score = Double(personType.confidenceScore)
+                    completion(result)
+                }
+                return
+            }
+
+            // ----- INTERIOR VALIDATION -----
+            let furnitureCoverage = furniture.reduce(0.0) { $0 + Double($1.areaPercentage) }
+            if furnitureCoverage < 0.03 || furnitureCoverage > 0.85 {
+                result.isValid = false
                 completion(result)
                 return
             }
-            
-            filterResults.append(FilterResult(
-                name: "Person Coverage",
-                passed: true,
-                message: "Acceptable person coverage (≤ 30%)",
-                value: String(format: "%.1f%%", totalPersonCoverage * 100),
-                latency: personCoverageLatency
-            ))
-            
-            // Step 5: Furniture Coverage Filter
-            let furnitureCoverageStart = CFAbsoluteTimeGetCurrent()
-            let totalFurnitureCoverage = furnitureDetections.reduce(0.0) { $0 + Double($1.areaPercentage) }
-            let furnitureCoverageLatency = (CFAbsoluteTimeGetCurrent() - furnitureCoverageStart) * 1000
-            
-            if totalFurnitureCoverage < 0.03 {
-                filterResults.append(FilterResult(
-                    name: "Furniture Coverage",
-                    passed: false,
-                    message: "Too little furniture (< 3%) - objects too far/small",
-                    value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
-                    latency: furnitureCoverageLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
-            }
-            
-            if totalFurnitureCoverage > 0.85 {
-                filterResults.append(FilterResult(
-                    name: "Furniture Coverage",
-                    passed: false,
-                    message: "Too much furniture (> 85%) - objects too close/zoomed",
-                    value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
-                    latency: furnitureCoverageLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
-            }
-            
-            filterResults.append(FilterResult(
-                name: "Furniture Coverage",
-                passed: true,
-                message: "Good furniture coverage (3-85%)",
-                value: String(format: "%.1f%%", totalFurnitureCoverage * 100),
-                latency: furnitureCoverageLatency
-            ))
-            
-            // Step 6: Object Spread Filter
-            let spreadStart = CFAbsoluteTimeGetCurrent()
-            let spreadScore = self.calculateSpreadScore(furnitureDetections)
-            let spreadLatency = (CFAbsoluteTimeGetCurrent() - spreadStart) * 1000
-            
-            if spreadScore < 0.03 {
-                filterResults.append(FilterResult(
-                    name: "Object Spread",
-                    passed: false,
-                    message: "Furniture is too clumped together",
-                    value: String(format: "Score: %.2f (< 0.03)", spreadScore),
-                    latency: spreadLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
-            }
-            
-            filterResults.append(FilterResult(
-                name: "Object Spread",
-                passed: true,
-                message: "Good furniture distribution",
-                value: String(format: "Score: %.2f", spreadScore),
-                latency: spreadLatency
-            ))
-            
-            // Step 7: Clutter Filter
-            let clutterStart = CFAbsoluteTimeGetCurrent()
-            let furnitureCount = furnitureDetections.count
-            let clutterLatency = (CFAbsoluteTimeGetCurrent() - clutterStart) * 1000
-            
-            if furnitureCount > 25 {
-                filterResults.append(FilterResult(
-                    name: "Clutter Filter",
-                    passed: false,
-                    message: "Too many furniture objects detected (> 25)",
-                    value: "\(furnitureCount) objects",
-                    latency: clutterLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
-            }
-            
-            filterResults.append(FilterResult(
-                name: "Clutter Filter",
-                passed: true,
-                message: "Acceptable number of furniture objects",
-                value: "\(furnitureCount) objects",
-                latency: clutterLatency
-            ))
-            
-            // Step 8: Aspect Ratio Filter
-            let aspectStart = CFAbsoluteTimeGetCurrent()
-            let aspectRatio = Double(image.size.width) / Double(image.size.height)
-            let aspectLatency = (CFAbsoluteTimeGetCurrent() - aspectStart) * 1000
-            
-            if aspectRatio < 0.5 || aspectRatio > 2.0 {
-                let orientation = aspectRatio < 0.5 ? "too tall" : "too wide"
-                filterResults.append(FilterResult(
-                    name: "Aspect Ratio",
-                    passed: false,
-                    message: "Image aspect ratio is \(orientation)",
-                    value: String(format: "%.2f (valid: 0.5-2.0)", aspectRatio),
-                    latency: aspectLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
-            }
-            
-            filterResults.append(FilterResult(
-                name: "Aspect Ratio",
-                passed: true,
-                message: "Good aspect ratio",
-                value: String(format: "%.2f", aspectRatio),
-                latency: aspectLatency
-            ))
-            
-            // Step 9: Color Variance Filter
-            let colorStart = CFAbsoluteTimeGetCurrent()
+
+            let spreadScore = self.calculateSpreadScore(furniture)
             let colorScore = self.calculateColorVariance(image)
-            let colorLatency = (CFAbsoluteTimeGetCurrent() - colorStart) * 1000
-            
-            if colorScore < 0.015 {
-                filterResults.append(FilterResult(
-                    name: "Color Variance",
-                    passed: false,
-                    message: "Image is too dull/gray or has poor lighting",
-                    value: String(format: "Score: %.3f (< 0.015)", colorScore),
-                    latency: colorLatency
-                ))
-                result.filterResults = filterResults
-                result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-                completion(result)
-                return
+            let compositionScore = self.calculateCompositionScore(furniture)
+
+            let coverageScore = self.normalizeCoverageScore(furnitureCoverage)
+
+            let finalScore =
+                0.4 * coverageScore +
+                0.25 * spreadScore +
+                0.25 * compositionScore +
+                0.10 * colorScore
+
+            result.isValid = true
+            switch roomType {
+            case .bedroom:
+                result.validCategory = .bed_room
+            case .diningRoom:
+                result.validCategory = .dining_room
+            case .livingRoom:
+                result.validCategory = .living_room
+            default :
+                result.isValid = false
+                result.validCategory = .unknown
             }
             
-            filterResults.append(FilterResult(
-                name: "Color Variance",
-                passed: true,
-                message: "Good color variance and lighting",
-                value: String(format: "Score: %.2f", colorScore),
-                latency: colorLatency
-            ))
-            
-            // Step 10: Composition (Center Proximity)
-            let compositionStart = CFAbsoluteTimeGetCurrent()
-            let compositionScore = self.calculateCompositionScore(furnitureDetections)
-            let compositionLatency = (CFAbsoluteTimeGetCurrent() - compositionStart) * 1000
-            
-            filterResults.append(FilterResult(
-                name: "Composition",
-                passed: true,
-                message: "Furniture center proximity evaluated",
-                value: String(format: "Score: %.2f", compositionScore),
-                latency: compositionLatency
-            ))
-            
-            // Calculate Final Score
-            let furnitureCoverageScore = self.normalizeCoverageScore(totalFurnitureCoverage)
-            
-            let scoreBreakdown = ScoreBreakdown(
-                furnitureCoverageScore: furnitureCoverageScore,
-                spreadScore: spreadScore,
-                compositionScore: compositionScore,
-                colorScore: colorScore,
-                finalScore: 0.4 * furnitureCoverageScore +
-                           0.25 * spreadScore +
-                           0.25 * compositionScore +
-                           0.10 * colorScore
-            )
-            
-            result.isValid = true
-            result.score = scoreBreakdown.finalScore
-            result.filterResults = filterResults
-            result.scoreBreakdown = scoreBreakdown
-            result.totalLatency = (CFAbsoluteTimeGetCurrent() - totalStartTime) * 1000
-            
+            result.score = finalScore
+            result.totalLatency = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+
             completion(result)
         }
     }
-    
-    /// Filter and return top 15 images sorted by highest score from scoreBreakdown
-    /// - Parameters:
-    ///   - images: Array of images to verify and filter
-    ///   - modelType: The YOLO model to use for object detection
-    ///   - completion: Completion handler with top 15 ImageVerificationResult sorted by score (highest first)
-    func filterResults(_ images: [ClusterImage], using modelType: YOLOModel, completion: @escaping ([ImageVerificationResult]) -> Void) {
+    func filterPhotoResults(
+        _ images: [PhotoDetectionData],
+        using modelType: YOLOModel,
+        completion: @escaping ([PhotoDetectionData]) -> Void
+    ) {
+        
         guard !images.isEmpty else {
             completion([])
             return
         }
-        
-        let maxResults = 15
         let batchSize = 3 // Process 3 images at a time to manage memory
-        var allResults: [ImageVerificationResult] = []
+        var allResults: [PhotoDetectionData] = []
         let resultQueue = DispatchQueue(label: "com.aimodelondevice.filterResults", attributes: .concurrent)
         let dispatchGroup = DispatchGroup()
         
@@ -371,7 +187,7 @@ class InteriorVerificationHandler {
         DispatchQueue.global(qos: .userInitiated).async {
             let semaphore = DispatchSemaphore(value: batchSize) // Limit concurrent operations
             
-            for (index, clusterImage) in images.enumerated() {
+            for (clusterImage) in images {
                 // Wait if we've reached the batch limit
                 semaphore.wait()
                 
@@ -384,21 +200,18 @@ class InteriorVerificationHandler {
                         dispatchGroup.leave()
                         return
                     }
-                    self.verifyInteriorImage(clusterImage.image, using: modelType) { result in
+                    
+                    self.verifyImage(clusterImage.image, using: modelType) { result in
                         defer {
                             semaphore.signal() // Signal when done
                             dispatchGroup.leave()
                         }
                         
                         // Only include valid results with scoreBreakdown
-                        if result.isValid, let scoreBreakdown = result.scoreBreakdown {
-                            let imageResult = ImageVerificationResult(
-                                image: clusterImage,
-                                result: result,
-                                index: index
-                            )
+                        if result.isValid {
+                            clusterImage.photoVerificationResult = result
                             resultQueue.async(flags: .barrier) {
-                                allResults.append(imageResult)
+                                allResults.append(clusterImage)
                             }
                         }
                     }
@@ -407,19 +220,37 @@ class InteriorVerificationHandler {
             
             // Wait for all verifications to complete
             dispatchGroup.notify(queue: .main) {
-                // Sort by scoreBreakdown.finalScore (highest first)
-                let sortedResults = allResults.sorted { first, second in
-                    let firstScore = first.result.scoreBreakdown?.finalScore ?? 0.0
-                    let secondScore = second.result.scoreBreakdown?.finalScore ?? 0.0
-                    return firstScore > secondScore
-                }
-                
-                // Return top 15
-                let topResults = Array(sortedResults.prefix(maxResults))
-                completion(topResults)
+//                // Sort by scoreBreakdown.finalScore (highest first)
+//                let sortedResults = allResults.sorted { first, second in
+//                    let firstScore = first.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
+//                    let secondScore = second.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
+//                    return firstScore > secondScore
+//                }
+                completion(allResults)
             }
         }
     }
+    // Normalize person coverage to 0-1 score (peak at ~40-60% for good framing)
+    private func normalizePersonCoverageScore(_ coverage: Double) -> Double {
+        let optimalCoverageMin = 0.40
+        let optimalCoverageMax = 0.60
+        
+        // If within optimal range, return high score
+        if coverage >= optimalCoverageMin && coverage <= optimalCoverageMax {
+            return 1.0
+        }
+        
+        // If below optimal, score based on distance from min
+        if coverage < optimalCoverageMin {
+            let distance = optimalCoverageMin - coverage
+            return max(0.0, 1.0 - (distance / optimalCoverageMin))
+        }
+        
+        // If above optimal, score based on distance from max
+        let distance = coverage - optimalCoverageMax
+        return max(0.0, 1.0 - (distance / (1.0 - optimalCoverageMax)))
+    }
+    
     
     // Calculate spread score based on overlap
     private func calculateSpreadScore(_ detections: [DetectionResult]) -> Double {

@@ -10,6 +10,7 @@ import UIKit
 
 /// Handler for Tagger API calls
 public class TaggerAPIHandler {
+    
     public static let shared = TaggerAPIHandler()
     
     private let taggerAPIURL = "https://hp.gennoctua.com/api/ml/tagger"
@@ -30,34 +31,7 @@ public class TaggerAPIHandler {
         "living_room": "sofa",
         "dining_room": "table"
     ]
-
-    // Reusable sessions to avoid memory leaks and overhead
-    private lazy var taggerSession: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 300 // 5 minutes for processing 15 images
-        config.timeoutIntervalForResource = 300
-        config.waitsForConnectivity = true
-        config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = 5
-        config.urlCache = nil // Disable cache for API calls
-        config.httpShouldSetCookies = false
-        config.httpCookieAcceptPolicy = .never
-        return URLSession(configuration: config)
-    }()
     
-    private lazy var generationSession: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 600 // 10 minutes for image generation
-        config.timeoutIntervalForResource = 600
-        config.waitsForConnectivity = true
-        config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = 5
-        config.urlCache = nil
-        config.httpShouldSetCookies = false
-        config.httpCookieAcceptPolicy = .never
-        return URLSession(configuration: config)
-    }()
-
     private init() {}
     
     /// Call tagger API with images and their identifiers
@@ -136,13 +110,16 @@ public class TaggerAPIHandler {
         imagesToProcess: [ClusterImage],
         completion: @escaping (Result<TaggerCompleteResult, Error>) -> Void
     ) {
+        // Make body mutable
+        var mutableBody = body
+        
         // Add IDs parameter (1, 2, 3, ...)
         let idsString = (1...imagesToProcess.count).map { String($0) }.joined(separator: ", ")
-        var mutableBody = body
         mutableBody.append("--\(boundary)\r\n".data(using: .utf8)!)
         mutableBody.append("Content-Disposition: form-data; name=\"ids\"\r\n\r\n".data(using: .utf8)!)
         mutableBody.append(idsString.data(using: .utf8)!)
         mutableBody.append("\r\n".data(using: .utf8)!)
+        
         mutableBody.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         // Create request
@@ -150,6 +127,26 @@ public class TaggerAPIHandler {
             completion(.failure(TaggerAPIError.invalidURL))
             return
         }
+        
+        // Create URLSessionConfiguration with longer timeout
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 300 // 5 minutes for processing 15 images
+        config.timeoutIntervalForResource = 300
+        config.waitsForConnectivity = true
+        config.allowsCellularAccess = true
+        config.httpShouldUsePipelining = false
+        config.httpMaximumConnectionsPerHost = 1
+        // Reduce network logging noise
+        config.urlCache = nil // Disable cache for API calls
+        // Use ephemeral session to avoid connection reuse issues
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        
+        // Create session with dedicated queue to avoid queue conflicts
+        let sessionQueue = OperationQueue()
+        sessionQueue.name = "com.aimodelondevice.taggerapi"
+        sessionQueue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: config, delegate: nil, delegateQueue: sessionQueue)
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -163,10 +160,8 @@ public class TaggerAPIHandler {
         print("📡 Starting Tagger API request...")
         let startTime = Date()
         
-        // Use the shared tagger session
-        let task = taggerSession.dataTask(with: request) { [weak self] data, response, error in
-            // Clear reference to self early if needed, but we use it below
-            guard let self = self else { return }
+        // Ensure we're on a background queue for the network operation
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
             // Ensure completion handler runs on background queue
             let elapsedTime = Date().timeIntervalSince(startTime)
             print("📡 Request completed in \(String(format: "%.2f", elapsedTime)) seconds")
@@ -356,7 +351,7 @@ public class TaggerAPIHandler {
         roomImageUrl: String? = nil,
         objectUrl: String? = nil,
         objectImage: UIImage? = nil,
-        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
+        completion: @escaping (Result<PersonalisationImageResult, Error>) -> Void
     ) {
         var tagType = ""
         if ["beds", "bed", "bedroom"].contains(roomType) {
@@ -457,7 +452,7 @@ public class TaggerAPIHandler {
                 switch result {
                 case .success(let img):
                     if let img {
-                        let persionalisationImageResult = PersionalisationImageResult(productUrl: objectUrl ?? "", resultImage: img)
+                        let persionalisationImageResult = PersonalisationImageResult(productUrl: objectUrl ?? "", resultImage: img)
                         completion(.success(persionalisationImageResult))
                     }else {
                         print("❌ Fashion generation failed:")
@@ -484,6 +479,23 @@ public class TaggerAPIHandler {
             return
         }
         
+        // Create URLSessionConfiguration with very long timeout for image generation
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 600 // 10 minutes for image generation
+        config.timeoutIntervalForResource = 600
+        config.waitsForConnectivity = true
+        config.allowsCellularAccess = true
+        config.httpShouldUsePipelining = false
+        config.httpMaximumConnectionsPerHost = 1
+        config.urlCache = nil
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        
+        let sessionQueue = OperationQueue()
+        sessionQueue.name = "com.aimodelondevice.roomgeneration"
+        sessionQueue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: config, delegate: nil, delegateQueue: sessionQueue)
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -492,10 +504,10 @@ public class TaggerAPIHandler {
         request.httpBody = body
         request.timeoutInterval = 600 // 10 minutes
         
+        
         let startTime = Date()
         
-        // Use the shared generation session
-        let task = generationSession.dataTask(with: request) { [weak self] data, response, error in
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
             guard let _ = self else { return }
             let elapsedTime = Date().timeIntervalSince(startTime)
             print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")
@@ -559,7 +571,7 @@ public class TaggerAPIHandler {
         task.resume()
     }
     
-    /// Resize image to reduce upload size using a more memory-efficient approach
+    /// Resize image to reduce upload size
     private func resizeImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
         let size = image.size
         let maxSize = max(size.width, size.height)
@@ -573,17 +585,12 @@ public class TaggerAPIHandler {
         let ratio = maxDimension / maxSize
         let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
         
-        // Modern and more memory-efficient resizing using UIGraphicsImageRenderer
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1.0 // Use source scale or 1.0 for processing
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        // Resize image
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
         
-        let resizedImage = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-        
-        return resizedImage
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        return UIGraphicsGetImageFromCurrentImageContext() ?? image
     }
     
 }
@@ -627,8 +634,7 @@ extension TaggerAPIHandler {
         thumbnailImg:UIImage,
         garmentImageUrl: String,
         productType:String,
-        categorySlug:String,
-        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
+        completion: @escaping (Result<PersonalisationImageResult, Error>) -> Void
     ) {
         
         // Use autoreleasepool to manage memory during image processing
@@ -641,14 +647,14 @@ extension TaggerAPIHandler {
             // Add room_type (mandatory)
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"garment_image_url\"\r\n\r\n".data(using: .utf8)!)
-            body.append((garmentImageUrl ?? "").data(using: .utf8)!)
+            body.append((garmentImageUrl).data(using: .utf8)!)
             body.append("\r\n".data(using: .utf8)!)
             
             // Resize room image to reduce upload size and memory usage
-            let resizedRoomImage = thumbnailImg//resizeImage(UserImage, maxDimension: 1024)
+            let resizedRoomImage = resizeImage(thumbnailImg, maxDimension: 1024)
             
             // Add room_image (mandatory - multipart form data)
-            guard let roomImageData = resizedRoomImage.jpegData(compressionQuality: 0.8) else {
+            guard let roomImageData = resizedRoomImage.jpegData(compressionQuality: 0.25) else {
                 completion(.failure(TaggerAPIError.imageConversionFailed))
                 return
             }
@@ -670,7 +676,7 @@ extension TaggerAPIHandler {
                 case .success(let strBase64):
                     if let strBase64 {
                         let img = UIImage.fromBase64DataURL(strBase64)
-                        let persionalisationImageResult = PersionalisationImageResult(productUrl: garmentImageUrl, resultImage: img)
+                        let persionalisationImageResult = PersonalisationImageResult(productUrl: garmentImageUrl, resultImage: img)
                         completion(.success(persionalisationImageResult))
                     }else {
                         print("❌ Fashion generation failed:")
@@ -695,6 +701,23 @@ extension TaggerAPIHandler {
             return
         }
         
+        // Create URLSessionConfiguration with very long timeout for image generation
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 600 // 10 minutes for image generation
+        config.timeoutIntervalForResource = 600
+        config.waitsForConnectivity = true
+        config.allowsCellularAccess = true
+        config.httpShouldUsePipelining = false
+        config.httpMaximumConnectionsPerHost = 1
+        config.urlCache = nil
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        
+        let sessionQueue = OperationQueue()
+        sessionQueue.name = "com.aimodelondevice.roomgeneration"
+        sessionQueue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: config, delegate: nil, delegateQueue: sessionQueue)
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -703,10 +726,10 @@ extension TaggerAPIHandler {
         request.httpBody = body
         request.timeoutInterval = 600 // 10 minutes
         
+        
         let startTime = Date()
         
-        // Use the shared generation session
-        let task = generationSession.dataTask(with: request) { [weak self] data, response, error in
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
             guard let _ = self else { return }
             let elapsedTime = Date().timeIntervalSince(startTime)
             print("📡 Fashion generation completed in \(String(format: "%.2f", elapsedTime)) seconds")

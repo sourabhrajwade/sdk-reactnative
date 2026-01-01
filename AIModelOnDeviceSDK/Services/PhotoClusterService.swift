@@ -10,30 +10,38 @@ import Photos
 import CoreLocation
 import UIKit
 import PhotosUI
-
-// Photo with location data
-struct PhotoLocation: Identifiable {
-    let id: String
-    let asset: PHAsset
-    let latitude: Double
-    let longitude: Double
-    var image: UIImage?
+struct PhotoVerificationResult {
+    var isValid: Bool = false
+    var validCategory: TaggerAPIResultCategory?
+    var score: Double = 0.0
+    var arrDetectionResult : [DetectionResult]?
+    var filterResults: [FilterResult] = []
+    var scoreBreakdown: ScoreBreakdown?
+    var totalLatency: Double = 0.0
     
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    var status: String {
+        return isValid ? "✅ Valid Interior Image" : "❌ Invalid Image"
+    }
+    
+    public init() {}
+}
+/// Category of verification
+public enum VerificationCategory: String, Codable {
+    case interior
+    case person
+    case unknown
+}
+class PhotoDetectionData {
+    let phAsset : PHAsset
+    let image : UIImage
+    var photoVerificationResult : PhotoVerificationResult?
+    
+    init(phAsset: PHAsset, image: UIImage) {
+        self.phAsset = phAsset
+        self.image = image
     }
 }
 
-// Cluster of photos
-struct PhotoCluster: Identifiable {
-    let id = UUID()
-    let photos: [PhotoLocation]
-    let centroid: CLLocationCoordinate2D
-    
-    var photoCount: Int {
-        photos.count
-    }
-}
 
 // Service for clustering photos by location
 final class PhotoClusterService {
@@ -47,7 +55,8 @@ final class PhotoClusterService {
     
     
     // MARK: - Fetch Photos
-    func fetchAllPhotos() async throws -> ([PhotoCluster]) {
+    
+    func fetchAllPHAssets() async throws -> ([PhotoDetectionData]){
         // Request authorization (using older API for read-only access)
         let status = await withCheckedContinuation { continuation in
             PHPhotoLibrary.requestAuthorization { status in
@@ -69,168 +78,33 @@ final class PhotoClusterService {
         
         let assets = PHAsset.fetchAssets(with: .image, options: fetchOptions)
         allAssets = Array(_immutableCocoaArray: assets)
-        
-        return try await fetchPhotosWithLocation(arrPHAssets: allAssets)
+        return try await fetchAllPhotosWithImages(allAssets: allAssets)
     }
-    /// Fetch photos with location (with caching support)
-    func fetchPhotosWithLocation(arrPHAssets:[PHAsset]) async throws -> ([PhotoCluster]) {
-        let photos = try await fetchPhotos(arrPHAssets:arrPHAssets)
-        let clusters = clusterPhotos(photos)
-        return (clusters)
-    }
-    /// Fetch photos with location from gallery using Swift 6 concurrent task groups
-    func fetchPhotos(arrPHAssets:[PHAsset]) async throws -> [PhotoLocation] {
+    func fetchAllPhotosWithImages(allAssets:[PHAsset]) async throws -> ([PhotoDetectionData]) {
         
-        // Use Swift 6 concurrent task groups to fetch photos with locations
-        return try await withThrowingTaskGroup(of: PhotoLocation?.self) { group in
-            var photos: [PhotoLocation] = []
+        
+        // Step 3: Load images from cluster
+        var clusterImages: [PhotoDetectionData] = []
+        let batchSize = 10
+        
+        for batchStart in stride(from: 0, to: allAssets.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, allAssets.count)
+            let batch = Array(allAssets[batchStart..<batchEnd])
             
-            // Process each asset concurrently
-            for asset in arrPHAssets {
-                group.addTask {
-                    // Check if asset has location
-                    if AIModelOnDeviceSDK.shared.sdkOptions.photoSelectionType == .auto {
-                        guard let location = asset.location else {
-                            return nil
-                        }
-                        
-                        // Create PhotoLocation (without image initially for performance)
-                        return PhotoLocation(
-                            id: asset.localIdentifier,
-                            asset: asset,
-                            latitude: location.coordinate.latitude,
-                            longitude: location.coordinate.longitude,
-                            image: nil
-                        )
-                    }else {
-                        // Create PhotoLocation (without image initially for performance)
-                        return PhotoLocation(
-                            id: asset.localIdentifier,
-                            asset: asset,
-                            latitude: 23.0,
-                            longitude: 24.0,
-                            image: nil
-                        )
-                    }
+            var batchImages: [PhotoDetectionData] = []
+            
+            for phasset in batch {
+                if let image = await PhotoClusterService().loadImageOfAsset(from: phasset) {
+                    batchImages.append(PhotoDetectionData(phAsset: phasset, image: image))
                 }
             }
             
-            // Collect results
-            for try await photoLocation in group {
-                if let photo = photoLocation {
-                    photos.append(photo)
-                }
-            }
-            
-            print("✅ Found \(photos.count) photos with GPS data out of \(arrPHAssets.count) total")
-            //LogWriter.shared.write("✅ Found \(photos.count) photos with GPS data out of \(allAssets.count) total")
-            return photos
-        }
-    }
-    
-    
-    /// Cluster photos that are geographically close
-    func clusterPhotos(_ photos: [PhotoLocation]) -> [PhotoCluster] {
-        var clusters: [PhotoCluster] = []
-        var unclustered = photos
-        
-        while let photo = unclustered.first {
-            let photoLocation = CLLocation(latitude: photo.latitude, longitude: photo.longitude)
-            
-            // Find all photos within radius
-            let clusterGroup = unclustered.filter { otherPhoto in
-                let otherLocation = CLLocation(latitude: otherPhoto.latitude, longitude: otherPhoto.longitude)
-                let distance = photoLocation.distance(from: otherLocation)
-                return distance < AIModelOnDeviceSDK.shared.sdkOptions.locationRadius
-            }
-            
-            if !clusterGroup.isEmpty {
-                // Compute centroid
-                let avgLat = clusterGroup.map { $0.latitude }.reduce(0, +) / Double(clusterGroup.count)
-                let avgLon = clusterGroup.map { $0.longitude }.reduce(0, +) / Double(clusterGroup.count)
-                
-                let cluster = PhotoCluster(
-                    photos: clusterGroup,
-                    centroid: CLLocationCoordinate2D(latitude: avgLat, longitude: avgLon)
-                )
-                clusters.append(cluster)
-                
-                // Remove clustered photos from the pool
-                let clusteredIds = Set(clusterGroup.map { $0.id })
-                unclustered.removeAll { clusteredIds.contains($0.id) }
-            } else {
-                unclustered.removeFirst()
+            autoreleasepool {
+                clusterImages.append(contentsOf: batchImages)
             }
         }
         
-        // Sort clusters by photo count (descending)
-        clusters.sort { $0.photoCount > $1.photoCount }
-        
-        print("✅ Created \(clusters.count) clusters")
-        //LogWriter.shared.write("✅ Created \(clusters.count) clusters")
-        return clusters
-    }
-    
-    /// Get the largest cluster (cluster with most photos)
-    func getLargestCluster(from clusters: [PhotoCluster]) -> PhotoCluster? {
-        return clusters.max(by: { $0.photoCount < $1.photoCount })
-    }
-    
-    /// Get clusters above a minimum photo count threshold
-    func getClustersAboveThreshold(_ clusters: [PhotoCluster], minimumPhotoCount: Int) -> [PhotoCluster] {
-        return clusters.filter { $0.photoCount >= minimumPhotoCount }
-    }
-    
-    func loadImage(from asset: PHAsset, targetSize : CGSize = CGSize(width: 1024, height: 1024)) async -> UIImage? {
-        return await withCheckedContinuation { continuation in
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .opportunistic
-            options.resizeMode = .fast
-            options.isSynchronous = false
-            
-            let aspectRatio = CGFloat(asset.pixelWidth) / CGFloat(asset.pixelHeight)
-            let size: CGSize
-            if aspectRatio > 1 {
-                size = CGSize(width: 1024, height: 1024 / aspectRatio)
-            } else {
-                size = CGSize(width: 1024 * aspectRatio, height: 1024)
-            }
-            
-            var hasResumed = false
-            let lock = NSLock()
-            
-            PHImageManager.default().requestImage(
-                for: asset,
-                targetSize: size,
-                contentMode: .aspectFit,
-                options: options
-            ) { image, info in
-                lock.lock()
-                defer { lock.unlock() }
-                
-                if hasResumed { return }
-                
-                if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
-                    if !hasResumed {
-                        hasResumed = true
-                        continuation.resume(returning: nil)
-                    }
-                    return
-                }
-                
-                if image != nil {
-                    if !hasResumed {
-                        hasResumed = true
-                        continuation.resume(returning: image)
-                    }
-                } else if let error = info?[PHImageErrorKey] as? Error {
-                    if !hasResumed {
-                        hasResumed = true
-                        continuation.resume(returning: nil)
-                    }
-                }
-            }
-        }
+        return clusterImages
     }
     
     func loadImageOfAsset(from asset: PHAsset) async -> UIImage? {
@@ -277,23 +151,6 @@ final class PhotoClusterService {
         }
     }
     
-}
-
-// MARK: - Photo Picker Coordinator
-
-/// Coordinator to handle PHPickerViewController delegate
-private class PhotoPickerCoordinator: NSObject, PHPickerViewControllerDelegate {
-    private let completion: ([PHPickerResult]) -> Void
-    
-    init(completion: @escaping ([PHPickerResult]) -> Void) {
-        self.completion = completion
-        super.init()
-    }
-    
-    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-        picker.dismiss(animated: true)
-        completion(results)
-    }
 }
 
 // Error types

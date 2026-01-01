@@ -330,7 +330,6 @@ class ObjectDetectionModelHandler {
         
         // Measure inference time
         let startTime = CFAbsoluteTimeGetCurrent()
-        
         // Create object detection request
         let request = VNCoreMLRequest(model: model) { request, error in
             let endTime = CFAbsoluteTimeGetCurrent()
@@ -343,6 +342,7 @@ class ObjectDetectionModelHandler {
             }
             
             // Process results
+            print(request.results , request.results?.count)
             guard let results = request.results as? [VNRecognizedObjectObservation] else {
                 print("❌ No detection results")
                 completion(nil, nil)
@@ -360,18 +360,22 @@ class ObjectDetectionModelHandler {
                     width: Float(box.width),
                     height: Float(box.height)
                 )
-                
-                return DetectionResult(
-                    label: label.identifier,
-                    confidence: label.confidence,
-                    boundingBox: boundingBox,
-                    areaPercentage: boundingBox.area
-                )
+                if observation.labels.first?.confidence ?? 0.0 > 0.5 {
+                    return DetectionResult(
+                        label: label.identifier,
+                        confidence: label.confidence,
+                        boundingBox: boundingBox,
+                        areaPercentage: boundingBox.area
+                    )
+                }
+                return nil
             }
             
             // Sort by area (largest first)
             let sortedDetections = detections.sorted { $0.areaPercentage > $1.areaPercentage }
-            
+            sortedDetections.forEach { detection in
+                print("✅ Detected: \(detection.label) objects, areaPercentage: \(String(format: "%.2f", detection.areaPercentage)), confidence: \(String(format: "%.2f", detection.confidence))")
+            }
             print("✅ Detection complete: \(sortedDetections.count) objects, Latency: \(String(format: "%.2f", latency))ms")
             completion(sortedDetections, latency)
         }
@@ -387,6 +391,88 @@ class ObjectDetectionModelHandler {
         } catch {
             print("❌ Failed to perform detection: \(error)")
             completion(nil, nil)
+        }
+    }
+    
+    func detectPhoto(_ image: UIImage, using modelType: YOLOModel) async -> ([DetectionResult]?, Double?){
+        return await withCheckedContinuation { continuation in
+            autoreleasepool {
+                // Load model
+                guard let model = loadModel(for: modelType) else {
+                    continuation.resume(returning: (nil,nil))
+                    return
+                }
+                
+                // Convert UIImage to CIImage
+                guard let ciImage = CIImage(image: image) else {
+                    print("❌ Failed to convert UIImage to CIImage")
+                    continuation.resume(returning: (nil,nil))
+                    return
+                }
+                
+                // Measure inference time
+                let startTime = CFAbsoluteTimeGetCurrent()
+                
+                // Create object detection request
+                let request = VNCoreMLRequest(model: model) { request, error in
+                    let endTime = CFAbsoluteTimeGetCurrent()
+                    let latency = (endTime - startTime) * 1000 // Convert to milliseconds
+                    
+                    if let error = error {
+                        print("❌ Detection error: \(error)")
+                        continuation.resume(returning: (nil,nil))
+                        return
+                    }
+                    
+                    // Process results
+                    guard let results = request.results as? [VNRecognizedObjectObservation] else {
+                        print("❌ No detection results")
+                        continuation.resume(returning: (nil,nil))
+                        return
+                    }
+                    
+                    // Convert to DetectionResult objects
+                    let detections = results.compactMap { observation -> DetectionResult? in
+                        guard let label = observation.labels.first else { return nil }
+                        
+                        let box = observation.boundingBox
+                        let boundingBox = BoundingBox(
+                            x: Float(box.origin.x),
+                            y: Float(box.origin.y),
+                            width: Float(box.width),
+                            height: Float(box.height)
+                        )
+                        
+                        return DetectionResult(
+                            label: label.identifier,
+                            confidence: label.confidence,
+                            boundingBox: boundingBox,
+                            areaPercentage: boundingBox.area
+                        )
+                    }
+                    
+                    // Sort by area (largest first)
+                    let sortedDetections = detections.sorted { $0.areaPercentage > $1.areaPercentage }
+                    
+                    print("✅ Detection complete: \(sortedDetections.count) objects, Latency: \(String(format: "%.2f", latency))ms")
+                    continuation.resume(returning: (sortedDetections, latency))
+                    return
+                }
+                
+                // Set image crop and scale option
+                request.imageCropAndScaleOption = .scaleFill
+                
+                // Create request handler
+                let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
+                
+                do {
+                    try handler.perform([request])
+                } catch {
+                    print("❌ Failed to perform detection: \(error)")
+                    continuation.resume(returning: (nil,nil))
+                    return
+                }
+            }
         }
     }
     

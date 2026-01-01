@@ -18,8 +18,8 @@
 //  Usage:
 //  ```swift
 //  import AIModelOnDeviceSDK
-//  let sdk = AIModelOnDeviceSDK.shared
-//  sdk.verifyInteriorImage(image) { result in ... }
+//  let sdk = AIModelSDK.shared
+//  sdk.runPersonalizationService(...) { result in ... }
 //  ```
 //
 //  See README.md for complete documentation.
@@ -39,7 +39,7 @@ import Photos
 /// ```swift
 /// import AIModelOnDeviceSDK
 ///
-/// let sdk = AIModelOnDeviceSDK.shared
+/// let sdk = AIModelSDK.shared
 ///
 /// // Verify interior image
     /// sdk.verifyInteriorImage(image, using: .yolov3) { result in
@@ -74,18 +74,18 @@ import Photos
 public struct SDKResult {
     public let success : Bool
     public let message : String
-    public let arrHomeGoodsAssest : [PersionalizeAssest]?
-    public let arrFashionAssest : [PersionalizeAssest]?
+    public let arrPersonalizeAsset : [PersonalizedAsset]
 }
 
-public struct PersionalizeAssest {
+public struct PersonalizedAsset {
     public let phAsset : PHAsset?
-    public let bestPickResult : BestPickResult
+    public var validCategory: TaggerAPIResultCategory
 }
+
 
 public enum SDKState {
     case analyzing
-    case clusturing
+    case clustering
     case selectingBestPhoto
     case tagging
     case complete
@@ -95,14 +95,14 @@ public enum SDKState {
         switch self {
         case .analyzing:
             "Analyzing photos..."
-        case .clusturing:
-            "Clusturing photos..."
+        case .clustering:
+            "Clustering photos..."
         case .selectingBestPhoto:
             "Selecting best photo..."
         case .tagging:
             "Tagging photos..."
         case .complete:
-            "Persionalization Complete"
+            "Personalization Complete"
         case .error:
             "Personalization error"
         }
@@ -111,11 +111,11 @@ public enum SDKState {
 
 
 public struct SDKVendor {
-    public let persionalisationType : PersionalisationType
+    public let personalizationType : PersonalizationType
     public let arrSDKCategory : [SDKCategory]
     
-    public init(persionalisationType: PersionalisationType, arrSDKCategory: [SDKCategory]) {
-        self.persionalisationType = persionalisationType
+    public init(personalizationType: PersonalizationType, arrSDKCategory: [SDKCategory]) {
+        self.personalizationType = personalizationType
         self.arrSDKCategory = arrSDKCategory
     }
 }
@@ -157,7 +157,7 @@ public struct SDKCategory: Identifiable, Hashable {
     }
 }
 
-public struct PersionalisationImageResult {
+public struct PersonalisationImageResult {
     public let productUrl : String
     public let resultImage: UIImage?
     
@@ -177,31 +177,31 @@ public struct ClusterImage {
     }
 }
 
-public class AIModelOnDeviceSDK {
+public class AIModelSDK {
     
-    public static let shared = AIModelOnDeviceSDK()
+    public static let shared = AIModelSDK()
     
-    public var sdkOptions : SDKOptions = SDKOptions(persionalisationType: .all, photoSelectionType: .auto)
-    
+    public var sdkOptions : SDKOptions = SDKOptions(personalizationType: .all, photoSelectionType: .auto)
+        
     private init() {
         
     }
     //Auto Service
     public func runPersonalizationService(sdkOptions: SDKOptions,progress: @escaping (SDKState) -> Void, completion: @escaping (Result<SDKResult, Error>) -> Void) async{
-        self.sdkOptions = SDKOptions(persionalisationType: sdkOptions.persionalisationType, photoSelectionType: .auto)
+        self.sdkOptions = SDKOptions(personalizationType: sdkOptions.personalizationType, photoSelectionType: .auto)
         do {
             try await SDKPersonalizationService.shared.runPersonalizationPipeline(
-                progressUpdate: progress, complition: completion)
+                progressUpdate: progress, completion: completion)
         } catch {
                 completion(.failure(error))
         }
     }
     //Manual Service
-    public func runPersonalizationServiceWith(sdkOptions: SDKOptions,arrPHAssesst:[PHAsset],progress: @escaping (SDKState) -> Void, completion: @escaping (Result<SDKResult, Error>) -> Void) async{
+    public func runPersonalizationServiceWith(sdkOptions: SDKOptions,arrPHAssets:[PHAsset],progress: @escaping (SDKState) -> Void, completion: @escaping (Result<SDKResult, Error>) -> Void) async{
         self.sdkOptions = sdkOptions
         do {
             try await SDKPersonalizationService.shared.runPersonalizationPipelineWith(
-                arrPHAssesst: arrPHAssesst, progressUpdate: progress, complition: completion)
+                arrPHAssets: arrPHAssets, progressUpdate: progress, completion: completion)
         } catch {
                 completion(.failure(error))
         }
@@ -212,7 +212,7 @@ public class AIModelOnDeviceSDK {
         roomImageUrl: String? = nil,
         objectUrl: String,
         objectImage: UIImage? = nil,
-        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
+        completion: @escaping (Result<PersonalisationImageResult, Error>) -> Void
     ) {
         TaggerAPIHandler.shared.generateRoom(thumbnailImg: thumbnailImg, roomType: roomType,objectUrl: objectUrl, completion: completion)
     }
@@ -221,10 +221,9 @@ public class AIModelOnDeviceSDK {
         thumbnailImg: UIImage,
         garmentImageUrl: String,
         productType:String,
-        categorySlug:String,
-        completion: @escaping (Result<PersionalisationImageResult, Error>) -> Void
+        completion: @escaping (Result<PersonalisationImageResult, Error>) -> Void
     ) {
-        TaggerAPIHandler.shared.generateFashion( thumbnailImg: thumbnailImg, garmentImageUrl: garmentImageUrl, productType: productType,categorySlug:categorySlug, completion: completion)
+        TaggerAPIHandler.shared.generateFashion( thumbnailImg: thumbnailImg, garmentImageUrl: garmentImageUrl, productType: productType, completion: completion)
     }
 }
 

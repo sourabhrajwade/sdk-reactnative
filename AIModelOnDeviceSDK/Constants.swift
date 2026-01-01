@@ -9,12 +9,12 @@ import Foundation
 import UIKit
 
 public struct SDKOptions {
-    public let persionalisationType : PersionalisationType
+    public let personalizationType : PersonalizationType
     public let photoSelectionType : PhotoSelectionType
     public let locationRadius : Double
     
-    public init(persionalisationType: PersionalisationType, photoSelectionType: PhotoSelectionType, locationRadius : Double = 500) {
-        self.persionalisationType = persionalisationType
+    public init(personalizationType: PersonalizationType, photoSelectionType: PhotoSelectionType, locationRadius : Double = 500) {
+        self.personalizationType = personalizationType
         self.photoSelectionType = photoSelectionType
         self.locationRadius = locationRadius
     }
@@ -25,7 +25,7 @@ public enum PhotoSelectionType {
     case manual
 }
 
-public enum PersionalisationType {
+public enum PersonalizationType {
     case homegoods
     case fashion
     case all
@@ -54,7 +54,7 @@ public let excludedCategories: Set<String> = [
     "spoon", "spoons"
 ]
 
-public enum TagerAPIResultCategory : String {
+public enum TaggerAPIResultCategory : String {
     case bed_room       = "bedroom"
     case living_room    = "living_room"
     case dining_room    = "dining_room"
@@ -86,7 +86,7 @@ public enum PersonalizationError: LocalizedError {
     case noImagesForCategory
     case noValidFaceFound
     
-    public var errorDescription: String? {
+    public var errorDescription: String {
         switch self {
         case .noPhotosFound:
             return "No photos with location data found"

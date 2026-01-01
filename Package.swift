@@ -11,6 +11,7 @@ let package = Package(
     products: [
         .library(
             name: "AIModelOnDeviceSDK",
+            type: .dynamic,
             targets: ["AIModelOnDeviceSDK"]),
     ],
     dependencies: [

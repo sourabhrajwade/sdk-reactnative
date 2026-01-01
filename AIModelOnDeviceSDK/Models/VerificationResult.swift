@@ -13,7 +13,6 @@ public struct VerificationResult {
     public var isValid: Bool = false
     public var score: Double = 0.0
     public var detections: [DetectionResult] = []
-    public var filterResults: [FilterResult] = []
     public var scoreBreakdown: ScoreBreakdown?
     public var totalLatency: Double = 0.0
     
@@ -24,23 +23,6 @@ public struct VerificationResult {
     public init() {}
 }
 
-/// Filter result details
-public struct FilterResult: Identifiable {
-    public let id = UUID()
-    public let name: String
-    public let passed: Bool
-    public let message: String
-    public let value: String
-    public let latency: Double
-    
-    public var icon: String {
-        return passed ? "checkmark.circle.fill" : "xmark.circle.fill"
-    }
-    
-    public var color: String {
-        return passed ? "green" : "red"
-    }
-}
 
 /// Score breakdown for verification
 public struct ScoreBreakdown: Codable {
@@ -61,20 +43,6 @@ public struct ScoreBreakdown: Codable {
         self.compositionScore = compositionScore
         self.colorScore = colorScore
         self.finalScore = finalScore
-    }
-}
-
-/// Image verification result wrapper containing both image and verification result
-struct ImageVerificationResult: Identifiable {
-    let id = UUID()
-    let image: ClusterImage
-    let result: VerificationResult
-    let index: Int
-    
-    init(image: ClusterImage, result: VerificationResult, index: Int) {
-        self.image = image
-        self.result = result
-        self.index = index
     }
 }
 

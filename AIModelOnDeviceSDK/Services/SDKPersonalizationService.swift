@@ -116,12 +116,6 @@ final class SDKPersonalizationService {
 
 // MARK: - Helper Types
 
-struct SDKCategoryMapping {
-    let category: SDKCategory
-    let taggerCategory: String
-    let bestPicks: [BestPickResult]
-}
-
 enum SDKPersonalizationError: LocalizedError {
     case noPhotosFound
     case insufficientPhotos

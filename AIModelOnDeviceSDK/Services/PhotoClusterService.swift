@@ -10,12 +10,12 @@ import Photos
 import CoreLocation
 import UIKit
 import PhotosUI
+
 struct PhotoVerificationResult {
     var isValid: Bool = false
     var validCategory: TaggerAPIResultCategory?
     var score: Double = 0.0
     var arrDetectionResult : [DetectionResult]?
-    var filterResults: [FilterResult] = []
     var scoreBreakdown: ScoreBreakdown?
     var totalLatency: Double = 0.0
     

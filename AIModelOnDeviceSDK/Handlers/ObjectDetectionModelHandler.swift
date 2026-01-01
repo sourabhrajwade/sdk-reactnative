@@ -394,6 +394,53 @@ class ObjectDetectionModelHandler {
         }
     }
     
+    public func detectRooms(_ image: UIImage, completion: @escaping ([DetectionResult]?, Double?) -> Void) {
+        
+        guard let cgImage = image.cgImage else {
+            print("❌ room_classifier: Invalid CGImage")
+            completion(nil, nil)
+            return
+        }
+        
+        guard let model = try? VNCoreMLModel(for: room_classifier().model) else {
+            print("❌ room_classifier: Model not loaded")
+            completion(nil, nil)
+            return
+        }
+        
+        // 2. Classify Gender
+        let request = VNCoreMLRequest(model: model)
+        request.imageCropAndScaleOption = .scaleFill // Ensure the image fills the model input
+        
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        
+        do {
+            try handler.perform([request])
+        } catch {
+            print("❌ room_classifier: Failed to perform classification: \(error.localizedDescription)")
+            completion(nil, nil)
+            return
+        }
+        var arrDetection : [DetectionResult]?
+        if let results = request.results as? [VNClassificationObservation] {
+            // Check all results
+            for result in results {
+                print("🔍 room_classifier Result: \(result.identifier) - \(result.confidence)")
+            }
+            
+            let sortedResults = results.sorted { $0.confidence > $1.confidence }
+            if let topResult = sortedResults.first {
+                // Lower threshold to 0.75 and handles both case-sensitivities
+                if topResult.confidence > 0.75 {
+                    arrDetection = [DetectionResult(label: topResult.identifier, confidence: topResult.confidence, boundingBox: BoundingBox(x: 0, y: 0, width: 0, height: 0), areaPercentage: 0.7)]
+                }
+            }
+        }
+        print("⚠️ room_classifier: Classification returned unknown/low confidence")
+        completion(arrDetection,nil)
+        return
+    }
+    
     func detectPhoto(_ image: UIImage, using modelType: YOLOModel) async -> ([DetectionResult]?, Double?){
         return await withCheckedContinuation { continuation in
             autoreleasepool {

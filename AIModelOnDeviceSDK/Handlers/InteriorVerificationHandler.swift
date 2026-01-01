@@ -11,22 +11,6 @@ import Vision
 import CoreML
 import CoreImage
 
-public enum RoomType: String {
-    case bedroom = "bedroom"
-    case livingRoom = "living_room"
-    case diningRoom = "dining_room"
-    case emptyRoom
-    case unknown
-}
-
-public enum PersonType: String {
-    case none
-    case single
-    case multiple
-    case background
-}
-
-
 /// Handler for interior image verification
 class InteriorVerificationHandler {
     
@@ -45,12 +29,12 @@ class InteriorVerificationHandler {
             "dining table": 6, "table": 4, "chair": 2
         ]
     ]
-
+    
     private func classifyRoom(_ detections: [DetectionResult]) -> RoomType {
         guard !detections.isEmpty else { return .emptyRoom }
-
+        
         var scores: [RoomType: Int] = [:]
-
+        
         for d in detections {
             let label = d.label.lowercased()
             for (room, weights) in roomObjectWeights {
@@ -59,23 +43,23 @@ class InteriorVerificationHandler {
                 }
             }
         }
-
+        
         guard let best = scores.max(by: { $0.value < $1.value }),
               best.value > 0 else {
             return .unknown
         }
         return best.key
     }
-
+    
     private func classifyPerson(_ persons: [DetectionResult]) -> (PersonType,confidenceScore:Float) {
         guard !persons.isEmpty else { return (.none,0.0) }
-
+        
         let coverage = persons.reduce(0.0) { $0 + Double($1.areaPercentage) }
-
+        
         if persons.count == 1 {
             return coverage > 0.35 ? (.single,persons.first?.confidence ?? 0.0) : (.none,0.0)
         }
-
+        
         return (.multiple,persons.first?.confidence ?? 0.0)
     }
     
@@ -88,68 +72,87 @@ class InteriorVerificationHandler {
     ) {
         let startTime = CFAbsoluteTimeGetCurrent()
         var result = PhotoVerificationResult()
-
-        ObjectDetectionModelHandler.shared.detectObjects(image, using: modelType) { [weak self] detections, _ in
+        
+        ObjectDetectionModelHandler.shared.detectRooms(image) { [weak self] detections, _ in
             guard let self = self, let detections = detections else {
                 result.isValid = false
                 completion(result)
                 return
             }
-
+            
             result.arrDetectionResult = detections
-
-            let relevant = detections.filter {
-                !excludedCategories.contains($0.label.lowercased())
-            }
-
-            let persons = relevant.filter { $0.label.lowercased() == "person" }
-            let furniture = relevant.filter {
-                furnitureCategories.contains($0.label.lowercased())
-            }
-            // ----- EMPTY ROOM -----
-            if furniture.isEmpty && persons.isEmpty {
-                result.isValid = false
-                result.validCategory = .unknown
-                completion(result)
-                return
-            }
+            
+            //            let relevant = detections.filter {
+            //                !excludedCategories.contains($0.label.lowercased())
+            //            }
+            //
+            //            let persons = relevant.filter { $0.label.lowercased() == "person" }
+            //            let furniture = relevant.filter {
+            //                furnitureCategories.contains($0.label.lowercased())
+            //            }
+            //            // ----- EMPTY ROOM -----
+            //            if furniture.isEmpty && persons.isEmpty {
+            //                result.isValid = false
+            //                result.validCategory = .unknown
+            //                completion(result)
+            //                return
+            //            }
             // 🔥 CLASSIFICATIONS
-            let roomType = self.classifyRoom(furniture)
-            let personType = self.classifyPerson(persons)
-
+            //            let roomType = self.classifyRoom(furniture)
+            //            let personType = self.classifyPerson(persons)
+            
             // ----- PERSON-FIRST IMAGE -----
-            if (personType.0) == .single {
-                Task {
-                    let category = await FaceNetModelHandler.shared.classifyGender(from: image)
-                    result.isValid = true
-                    result.validCategory = category
-                    result.score = Double(personType.confidenceScore)
-                    completion(result)
-                }
-                return
-            }
-
+            //            if (personType.0) == .single {
+            //                Task {
+            //                    let category = await FaceNetModelHandler.shared.classifyGender(from: image)
+            //                    result.isValid = true
+            //                    result.validCategory = category
+            //                    result.score = Double(personType.confidenceScore)
+            //                    completion(result)
+            //                }
+            //                return
+            //            }
+            
             // ----- INTERIOR VALIDATION -----
-            let furnitureCoverage = furniture.reduce(0.0) { $0 + Double($1.areaPercentage) }
-            if furnitureCoverage < 0.03 || furnitureCoverage > 0.85 {
-                result.isValid = false
-                completion(result)
-                return
-            }
-
-            let spreadScore = self.calculateSpreadScore(furniture)
-            let colorScore = self.calculateColorVariance(image)
-            let compositionScore = self.calculateCompositionScore(furniture)
-
-            let coverageScore = self.normalizeCoverageScore(furnitureCoverage)
-
-            let finalScore =
-                0.4 * coverageScore +
-                0.25 * spreadScore +
-                0.25 * compositionScore +
-                0.10 * colorScore
-
+            //            let furnitureCoverage = furniture.reduce(0.0) { $0 + Double($1.areaPercentage) }
+            //            if furnitureCoverage < 0.03 || furnitureCoverage > 0.85 {
+            //                result.isValid = false
+            //                completion(result)
+            //                return
+            //            }
+            
+            //            let spreadScore = self.calculateSpreadScore(furniture)
+            //            let colorScore = self.calculateColorVariance(image)
+            //            let compositionScore = self.calculateCompositionScore(furniture)
+            //
+            //            let coverageScore = self.normalizeCoverageScore(furnitureCoverage)
+            //
+            //            let finalScore =
+            //                0.4 * coverageScore +
+            //                0.25 * spreadScore +
+            //                0.25 * compositionScore +
+            //                0.10 * colorScore
+            //
+            //            result.isValid = true
+            //            switch roomType {
+            //            case .bedroom:
+            //                result.validCategory = .bed_room
+            //            case .diningRoom:
+            //                result.validCategory = .dining_room
+            //            case .livingRoom:
+            //                result.validCategory = .living_room
+            //            default :
+            //                result.isValid = false
+            //                result.validCategory = .unknown
+            //            }
+            
+            //            result.score = finalScore
             result.isValid = true
+            result.score = Double(detections.first?.confidence ?? 0.0)
+            result.totalLatency = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+            
+            
+            let roomType = RoomType(rawValue: detections.first?.label.lowercased() ?? "")
             switch roomType {
             case .bedroom:
                 result.validCategory = .bed_room
@@ -161,10 +164,6 @@ class InteriorVerificationHandler {
                 result.isValid = false
                 result.validCategory = .unknown
             }
-            
-            result.score = finalScore
-            result.totalLatency = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-
             completion(result)
         }
     }
@@ -220,12 +219,12 @@ class InteriorVerificationHandler {
             
             // Wait for all verifications to complete
             dispatchGroup.notify(queue: .main) {
-//                // Sort by scoreBreakdown.finalScore (highest first)
-//                let sortedResults = allResults.sorted { first, second in
-//                    let firstScore = first.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
-//                    let secondScore = second.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
-//                    return firstScore > secondScore
-//                }
+                //                // Sort by scoreBreakdown.finalScore (highest first)
+                //                let sortedResults = allResults.sorted { first, second in
+                //                    let firstScore = first.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
+                //                    let secondScore = second.photoVerificationResult?.scoreBreakdown?.finalScore ?? 0.0
+                //                    return firstScore > secondScore
+                //                }
                 completion(allResults)
             }
         }

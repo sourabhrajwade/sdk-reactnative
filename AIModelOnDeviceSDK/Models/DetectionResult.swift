@@ -8,6 +8,20 @@
 import Foundation
 import UIKit
 
+public enum RoomType: String {
+    case bedroom = "bedroom"
+    case livingRoom = "living_room"
+    case diningRoom = "dining_room"
+    case emptyRoom
+    case unknown
+}
+
+public enum PersonType: String {
+    case none
+    case single
+    case multiple
+    case background
+}
 /// Detection result structure for object detection
 public struct DetectionResult: Codable, Identifiable {
     public let id = UUID()
